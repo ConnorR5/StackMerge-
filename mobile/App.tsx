@@ -46,7 +46,7 @@ import {
 import { SFX, setSoundEnabled } from './src/sfx';
 import { Feel, setHapticsEnabled } from './src/haptics';
 import { ACHIEVEMENTS } from './src/achievements';
-import { submitScore } from './src/leaderboard';
+import { ensurePlayer, setPlayerName, submitScore } from './src/leaderboard';
 
 import { Board } from './src/components/Board';
 import { ComboCallout } from './src/components/ComboCallout';
@@ -538,12 +538,37 @@ function Root() {
      ============================================================ */
   const [submitState, setSubmitState] = useState<EndSubmitState>('idle');
   const [leaderboardMode, setLeaderboardMode] = useState<GameMode>('classic');
+  const [myPlayerNumber, setMyPlayerNumber] = useState<number | null>(null);
   /** Identifies the current ended-game so we don't double-submit. */
   const submittedKeyRef = useRef<string | null>(null);
 
   function gameKey(s: GameState): string {
     return s.mode + ':' + s.moves + ':' + s.score + ':' + s.highestTile;
   }
+
+  // On boot, register our device with the players table so we know our
+  // assigned player number (and so the leaderboard can show "← you" without
+  // waiting for a score).
+  useEffect(() => {
+    if (!persistent?.deviceId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const player = await ensurePlayer(persistent.deviceId!);
+        if (cancelled) return;
+        setMyPlayerNumber(player.player_number);
+        // Sync persisted name with whatever the server has for this device
+        if (player.name && player.name !== persistent.playerName) {
+          setPersistent({ ...persistent, playerName: player.name });
+        }
+      } catch {
+        // Network down — we'll retry next boot. Local play still works.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [persistent?.deviceId]);
 
   function openLeaderboard(initial: GameMode = 'classic') {
     setLeaderboardMode(initial);
@@ -552,7 +577,7 @@ function Root() {
     Feel.button();
   }
 
-  async function doSubmitScore(name: string, snapshot: GameState) {
+  async function doSubmitScore(snapshot: GameState) {
     const p = persistentRef.current;
     if (!p || !p.deviceId) return;
     if (snapshot.score <= 0) {
@@ -562,7 +587,6 @@ function Root() {
     setSubmitState('submitting');
     try {
       await submitScore({
-        name,
         score: snapshot.score,
         mode: snapshot.mode,
         highestTile: snapshot.highestTile,
@@ -580,6 +604,8 @@ function Root() {
   }
 
   // Auto-submit whenever the end overlay opens for a fresh ended game.
+  // Players without a name still submit — they'll appear as "#<number>" on
+  // the leaderboard until they pick a handle.
   useEffect(() => {
     if (overlay !== 'end' || !state.ended || !persistent) return;
     const key = gameKey(state);
@@ -589,34 +615,35 @@ function Root() {
       submittedKeyRef.current = key;
       return;
     }
-    if (!persistent.playerName) {
-      setSubmitState('needs-name');
-      return;
-    }
     submittedKeyRef.current = key;
-    doSubmitScore(persistent.playerName, state);
-  }, [overlay, state.ended, state.score, state.mode, state.moves, state.highestTile, persistent?.playerName, persistent?.deviceId]);
+    doSubmitScore(state);
+  }, [overlay, state.ended, state.score, state.mode, state.moves, state.highestTile, persistent?.deviceId]);
 
-  /** Called when the user taps the status line — either to fix needs-name or retry. */
+  /** Called when the user taps the status line — currently only used for retry. */
   function onSubmitAction() {
-    if (submitState === 'needs-name') {
+    if (submitState === 'error') {
+      submittedKeyRef.current = null;
+      doSubmitScore(state);
+    } else if (submitState === 'needs-name') {
       setOverlay('name');
-    } else if (submitState === 'error') {
-      const p = persistentRef.current;
-      if (p?.playerName) {
-        // Retry with the same snapshot
-        submittedKeyRef.current = null;
-        doSubmitScore(p.playerName, state);
-      }
     }
   }
 
-  function onNameSubmitted(name: string) {
-    if (!persistent) return;
-    setPersistent({ ...persistent, playerName: name });
-    setOverlay('end');
-    submittedKeyRef.current = null; // allow re-submit with new name
-    doSubmitScore(name, state);
+  async function handleNameSave(name: string) {
+    const p = persistentRef.current;
+    if (!p?.deviceId) return { ok: false as const, reason: 'no device id' };
+    const r = await setPlayerName(p.deviceId, name);
+    if (!r.ok) {
+      if (r.error.kind === 'taken') return { ok: false as const, reason: 'name already taken' };
+      if (r.error.kind === 'invalid')
+        return { ok: false as const, reason: r.error.reason };
+      return { ok: false as const, reason: 'connection failed — try again' };
+    }
+    setPersistent({ ...p, playerName: name });
+    setMyPlayerNumber(r.player.player_number);
+    // Close name overlay → return to whatever screen we came from
+    setOverlay(state.ended ? 'end' : 'home');
+    return { ok: true as const };
   }
 
   const colorScheme = useColorScheme();
@@ -800,10 +827,12 @@ function Root() {
         <HomeOverlay
           theme={theme}
           persistent={persistent}
+          myPlayerNumber={myPlayerNumber}
           onPickMode={startMode}
           onOpenHowTo={() => setOverlay('howto')}
           onOpenSettings={() => setOverlay('settings')}
           onOpenLeaderboard={() => openLeaderboard('classic')}
+          onOpenName={() => setOverlay('name')}
         />
       )}
       {overlay === 'howto' && (
@@ -858,8 +887,9 @@ function Root() {
         <NameOverlay
           theme={theme}
           initial={persistent.playerName}
-          onSubmit={onNameSubmitted}
-          onCancel={() => setOverlay('end')}
+          playerNumber={myPlayerNumber}
+          onSubmit={handleNameSave}
+          onCancel={() => setOverlay(state.ended ? 'end' : 'home')}
         />
       )}
 

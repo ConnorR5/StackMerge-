@@ -8,19 +8,24 @@ import type { Persistent } from '../storage';
 interface Props {
   theme: Theme;
   persistent: Persistent;
+  /** Auto-assigned player number for this device, when known. */
+  myPlayerNumber: number | null;
   onPickMode: (mode: GameMode) => void;
   onOpenHowTo: () => void;
   onOpenSettings: () => void;
   onOpenLeaderboard: () => void;
+  onOpenName: () => void;
 }
 
 export const HomeOverlay: React.FC<Props> = ({
   theme,
   persistent,
+  myPlayerNumber,
   onPickMode,
   onOpenHowTo,
   onOpenSettings,
   onOpenLeaderboard,
+  onOpenName,
 }) => {
   function bestFor(mode: GameMode): number {
     return persistent.bests[mode] || 0;
@@ -114,6 +119,25 @@ export const HomeOverlay: React.FC<Props> = ({
         >
           <Text style={[styles.leaderboardText, { color: theme.bg }]} allowFontScaling={false}>
             ◆ LEADERBOARD
+          </Text>
+        </Pressable>
+
+        <Pressable
+          style={({ pressed }) => [
+            styles.identityRow,
+            { borderColor: theme.inkSoft, opacity: pressed ? 0.6 : 1 },
+          ]}
+          onPress={onOpenName}
+        >
+          <Text style={[styles.identityLabel, { color: theme.inkDim }]} allowFontScaling={false}>
+            you
+          </Text>
+          <Text style={[styles.identityName, { color: theme.ink }]} allowFontScaling={false}>
+            {persistent.playerName ||
+              (myPlayerNumber != null ? '#' + myPlayerNumber : 'connecting…')}
+          </Text>
+          <Text style={[styles.identityHint, { color: theme.accent }]} allowFontScaling={false}>
+            {persistent.playerName ? 'change' : 'set name'}
           </Text>
         </Pressable>
 
@@ -237,6 +261,33 @@ const styles = StyleSheet.create({
     fontSize: 12,
     letterSpacing: 2,
     fontWeight: '700',
+  },
+  identityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    marginBottom: 10,
+  },
+  identityLabel: {
+    fontSize: 9,
+    letterSpacing: 1.5,
+    fontWeight: '700',
+  },
+  identityName: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '700',
+    letterSpacing: -0.3,
+  },
+  identityHint: {
+    fontSize: 9,
+    letterSpacing: 1.5,
+    fontWeight: '700',
+    textTransform: 'uppercase',
   },
   smallBtn: {
     flex: 1,

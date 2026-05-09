@@ -1,12 +1,14 @@
 /**
- * Supabase-backed global leaderboard.
+ * Supabase-backed leaderboard.
  *
  * Project: SideProjects (vigbcnztxhgwduxexkwb).
- * Table:   public.stack_merge_scores
+ * Tables:
+ *   public.stack_merge_players  — device → player_number/name (identity)
+ *   public.stack_merge_scores   — one row per completed game
  *
- * Anon insert is allowed (the table has CHECK constraints to keep values
- * sane). For a casual game this is fine — if cheating becomes a problem
- * we'll route inserts through an edge function with a server signature.
+ * Display name resolution happens at read time:
+ *   player.name ?? '#' + player_number
+ * which means renaming retroactively updates every old leaderboard row.
  */
 
 import 'react-native-url-polyfill/auto';
@@ -32,9 +34,17 @@ function ensure(): SupabaseClient {
   return client;
 }
 
+export interface Player {
+  id: string;
+  player_number: number;
+  device_id: string;
+  name: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface ScoreRow {
   id: string;
-  name: string;
   score: number;
   mode: GameMode;
   highest_tile: number;
@@ -42,10 +52,11 @@ export interface ScoreRow {
   longest_chain: number;
   device_id: string;
   created_at: string;
+  /** Joined from stack_merge_players. */
+  player: { player_number: number; name: string | null } | null;
 }
 
 export interface SubmitInput {
-  name: string;
   score: number;
   mode: GameMode;
   highestTile: number;
@@ -54,51 +65,114 @@ export interface SubmitInput {
   deviceId: string;
 }
 
-export async function submitScore(input: SubmitInput): Promise<ScoreRow> {
+/** Resolve the display label for a row: name if set, else "#<player_number>". */
+export function displayLabel(p: { name: string | null; player_number: number } | null | undefined): string {
+  if (!p) return '#?';
+  if (p.name && p.name.length > 0) return p.name;
+  return '#' + p.player_number;
+}
+
+export async function submitScore(input: SubmitInput): Promise<void> {
   const sb = ensure();
-  const { data, error } = await sb
-    .from('stack_merge_scores')
-    .insert({
-      name: input.name.slice(0, 24),
-      score: Math.max(0, Math.floor(input.score)),
-      mode: input.mode,
-      highest_tile: Math.max(2, Math.floor(input.highestTile)),
-      moves: Math.max(0, Math.floor(input.moves)),
-      longest_chain: Math.max(1, Math.floor(input.longestChain)),
-      device_id: input.deviceId,
-    })
-    .select()
-    .single();
+  // The DB trigger auto-creates a player row for new device_ids; we never
+  // submit a name with the score (the player table owns that).
+  const { error } = await sb.from('stack_merge_scores').insert({
+    score: Math.max(0, Math.floor(input.score)),
+    mode: input.mode,
+    highest_tile: Math.max(2, Math.floor(input.highestTile)),
+    moves: Math.max(0, Math.floor(input.moves)),
+    longest_chain: Math.max(1, Math.floor(input.longestChain)),
+    device_id: input.deviceId,
+    // The legacy `name` column on scores is required (NOT NULL); we still
+    // populate it with a placeholder so old clients work, but reads use
+    // the joined player.name instead.
+    name: '_',
+  });
   if (error) throw error;
-  return data as ScoreRow;
 }
 
 export async function fetchTopScores(mode: GameMode, limit = 50): Promise<ScoreRow[]> {
   const sb = ensure();
   const { data, error } = await sb
     .from('stack_merge_scores')
-    .select('*')
+    .select(
+      'id, score, mode, highest_tile, moves, longest_chain, device_id, created_at, player:stack_merge_players!stack_merge_scores_player_fk(player_number, name)'
+    )
     .eq('mode', mode)
     .order('score', { ascending: false })
     .order('created_at', { ascending: false })
     .limit(limit);
   if (error) throw error;
-  return (data || []) as ScoreRow[];
+  // Supabase returns the join as an object (single FK target).
+  return (data || []) as unknown as ScoreRow[];
 }
 
-export async function fetchDeviceBest(
-  mode: GameMode,
-  deviceId: string
-): Promise<ScoreRow | null> {
+export async function getPlayer(deviceId: string): Promise<Player | null> {
   const sb = ensure();
   const { data, error } = await sb
-    .from('stack_merge_scores')
+    .from('stack_merge_players')
     .select('*')
-    .eq('mode', mode)
     .eq('device_id', deviceId)
-    .order('score', { ascending: false })
-    .limit(1)
     .maybeSingle();
   if (error) throw error;
-  return (data as ScoreRow) || null;
+  return (data as Player) || null;
+}
+
+/**
+ * Insert (if missing) the player row for this device. Useful at boot so we
+ * can show "you're #42" before they've even played a game.
+ */
+export async function ensurePlayer(deviceId: string): Promise<Player> {
+  const sb = ensure();
+  const existing = await getPlayer(deviceId);
+  if (existing) return existing;
+  const { data, error } = await sb
+    .from('stack_merge_players')
+    .insert({ device_id: deviceId })
+    .select()
+    .single();
+  if (error) {
+    // Race: another insert may have just landed; re-fetch
+    const again = await getPlayer(deviceId);
+    if (again) return again;
+    throw error;
+  }
+  return data as Player;
+}
+
+export type SetNameError =
+  | { kind: 'taken' }
+  | { kind: 'invalid'; reason: string }
+  | { kind: 'network' };
+
+export async function setPlayerName(
+  deviceId: string,
+  name: string
+): Promise<{ ok: true; player: Player } | { ok: false; error: SetNameError }> {
+  const sb = ensure();
+  // Make sure a row exists first
+  try {
+    await ensurePlayer(deviceId);
+  } catch {
+    return { ok: false, error: { kind: 'network' } };
+  }
+
+  const { data, error } = await sb
+    .from('stack_merge_players')
+    .update({ name })
+    .eq('device_id', deviceId)
+    .select()
+    .single();
+
+  if (error) {
+    // Postgres error code 23505 = unique_violation
+    if (error.code === '23505' || /duplicate|unique/i.test(error.message)) {
+      return { ok: false, error: { kind: 'taken' } };
+    }
+    if (error.code === '23514' || /check/i.test(error.message)) {
+      return { ok: false, error: { kind: 'invalid', reason: 'name not allowed' } };
+    }
+    return { ok: false, error: { kind: 'network' } };
+  }
+  return { ok: true, player: data as Player };
 }

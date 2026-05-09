@@ -10,7 +10,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MODES, type GameMode } from '../constants';
 import type { Theme } from '../theme';
-import { fetchTopScores, type ScoreRow } from '../leaderboard';
+import { displayLabel, fetchTopScores, type ScoreRow } from '../leaderboard';
 
 interface Props {
   theme: Theme;
@@ -189,7 +189,7 @@ export const LeaderboardOverlay: React.FC<Props> = ({
                     numberOfLines={1}
                     allowFontScaling={false}
                   >
-                    {row.name}
+                    {displayLabel(row.player)}
                     {isMe ? '  ← you' : ''}
                   </Text>
                   <Text style={[styles.meta, { color: theme.inkDim }]} numberOfLines={1} allowFontScaling={false}>

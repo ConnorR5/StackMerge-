@@ -1,19 +1,48 @@
 import React, { useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Theme } from '../theme';
+import { validateName } from '../profanity';
+
+export type NameSubmitResult =
+  | { ok: true }
+  | { ok: false; reason: string };
 
 interface Props {
   theme: Theme;
   initial?: string | null;
-  onSubmit: (name: string) => void;
+  /**
+   * Called when the user taps Save. The parent does any server-side checks
+   * (uniqueness, etc) and resolves with the result. While the promise is
+   * pending we show a spinner.
+   */
+  onSubmit: (name: string) => Promise<NameSubmitResult>;
   onCancel: () => void;
+  /** Optional: the player's auto-assigned number, shown as a hint. */
+  playerNumber?: number | null;
 }
 
-export const NameOverlay: React.FC<Props> = ({ theme, initial, onSubmit, onCancel }) => {
+export const NameOverlay: React.FC<Props> = ({ theme, initial, onSubmit, onCancel, playerNumber }) => {
   const [value, setValue] = useState(initial || '');
-  const trimmed = value.trim().slice(0, 24);
-  const valid = trimmed.length > 0;
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function tryNext() {
+    if (busy) return;
+    const v = validateName(value);
+    if (!v.ok) {
+      setError(v.reason);
+      return;
+    }
+    setError(null);
+    setBusy(true);
+    try {
+      const r = await onSubmit(v.clean);
+      if (!r.ok) setError(r.reason);
+    } finally {
+      setBusy(false);
+    }
+  }
 
   return (
     <SafeAreaView style={[styles.host, { backgroundColor: theme.bg }]}>
@@ -25,62 +54,77 @@ export const NameOverlay: React.FC<Props> = ({ theme, initial, onSubmit, onCance
           PICK A HANDLE
         </Text>
         <Text style={[styles.hint, { color: theme.inkDim }]} allowFontScaling={false}>
-          shows on the leaderboard. up to 24 characters.
+          {playerNumber != null
+            ? `currently you're #${playerNumber} · names must be unique · 24 chars max`
+            : 'names must be unique · 24 chars max'}
         </Text>
 
         <TextInput
           autoFocus
           value={value}
-          onChangeText={setValue}
+          onChangeText={(t) => {
+            setValue(t);
+            if (error) setError(null);
+          }}
           maxLength={24}
           placeholder="e.g. connor"
           placeholderTextColor={theme.inkDim}
           style={[
             styles.input,
-            { borderColor: theme.ink, color: theme.ink },
+            { borderColor: error ? theme.accent : theme.ink, color: theme.ink },
           ]}
           autoCapitalize="none"
           autoCorrect={false}
-          onSubmitEditing={() => valid && onSubmit(trimmed)}
+          editable={!busy}
+          onSubmitEditing={tryNext}
           returnKeyType="done"
           allowFontScaling={false}
         />
 
+        {error && (
+          <Text style={[styles.error, { color: theme.accent }]} allowFontScaling={false}>
+            ⚠ {error}
+          </Text>
+        )}
+
         <View style={styles.btns}>
           <Pressable
             onPress={onCancel}
+            disabled={busy}
             style={({ pressed }) => [
               styles.btn,
               {
                 borderColor: theme.ink,
                 backgroundColor: pressed ? theme.ink : 'transparent',
+                opacity: busy ? 0.5 : 1,
               },
             ]}
           >
             {({ pressed }) => (
-              <Text
-                style={[styles.btnText, { color: pressed ? theme.bg : theme.ink }]}
-                allowFontScaling={false}
-              >
+              <Text style={[styles.btnText, { color: pressed ? theme.bg : theme.ink }]} allowFontScaling={false}>
                 Cancel
               </Text>
             )}
           </Pressable>
           <Pressable
-            onPress={() => valid && onSubmit(trimmed)}
-            disabled={!valid}
+            onPress={tryNext}
+            disabled={busy}
             style={({ pressed }) => [
               styles.btn,
               {
                 borderColor: theme.ink,
-                backgroundColor: valid ? (pressed ? theme.accent : theme.ink) : theme.inkSoft,
-                opacity: valid ? 1 : 0.6,
+                backgroundColor: pressed ? theme.accent : theme.ink,
+                opacity: busy ? 0.7 : 1,
               },
             ]}
           >
-            <Text style={[styles.btnText, { color: theme.bg }]} allowFontScaling={false}>
-              Save & submit
-            </Text>
+            {busy ? (
+              <ActivityIndicator color={theme.bg} />
+            ) : (
+              <Text style={[styles.btnText, { color: theme.bg }]} allowFontScaling={false}>
+                Save
+              </Text>
+            )}
           </Pressable>
         </View>
       </View>
@@ -108,6 +152,7 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     marginBottom: 24,
     fontWeight: '600',
+    lineHeight: 16,
   },
   input: {
     borderWidth: 2,
@@ -116,17 +161,27 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: '700',
     letterSpacing: -0.5,
-    marginBottom: 24,
+    marginBottom: 12,
+  },
+  error: {
+    fontFamily: 'monospace',
+    fontSize: 11,
+    letterSpacing: 1,
+    fontWeight: '700',
+    marginBottom: 16,
   },
   btns: {
     flexDirection: 'row',
     gap: 10,
+    marginTop: 12,
   },
   btn: {
     flex: 1,
     paddingVertical: 14,
     borderWidth: 2,
     alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 50,
   },
   btnText: {
     fontSize: 11,
