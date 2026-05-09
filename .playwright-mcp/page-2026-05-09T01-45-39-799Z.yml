@@ -1,0 +1,131 @@
+- generic [ref=e2]:
+  - banner [ref=e3]:
+    - generic [ref=e4]:
+      - generic [ref=e5]: STACK/MERGE
+      - generic [ref=e6]: tap · combine · grow
+      - generic [ref=e7]: CLASSIC
+    - generic [ref=e8]:
+      - generic [ref=e9]:
+        - generic [ref=e10]: Score
+        - generic [ref=e11]: "0"
+        - generic [ref=e12]: best 0
+      - button "Settings" [ref=e13] [cursor=pointer]:
+        - img [ref=e14]
+  - generic [ref=e17]:
+    - generic [ref=e18]: Next →
+    - generic [ref=e19]: "2"
+    - generic [ref=e20]: "moves: 0"
+  - contentinfo [ref=e39]:
+    - button "Undo" [disabled] [ref=e40]
+    - button "Home" [ref=e41] [cursor=pointer]
+  - generic [ref=e42]:
+    - generic [ref=e43]: — a quick puzzle —
+    - generic [ref=e44]: STACK/MERGE
+    - generic [ref=e45]: tap · combine · grow
+    - generic [ref=e46]:
+      - button "Classic Reach 2048 · special tiles best 0" [ref=e47] [cursor=pointer]:
+        - generic [ref=e48]:
+          - generic [ref=e49]: Classic
+          - generic [ref=e50]: Reach 2048 · special tiles
+        - generic [ref=e51]:
+          - text: best
+          - generic [ref=e52]: "0"
+      - button "Zen No game over · drift forever best 0" [ref=e53] [cursor=pointer]:
+        - generic [ref=e54]:
+          - generic [ref=e55]: Zen
+          - generic [ref=e56]: No game over · drift forever
+        - generic [ref=e57]:
+          - text: best
+          - generic [ref=e58]: "0"
+      - button "Race 60 seconds · max score best 0" [ref=e59] [cursor=pointer]:
+        - generic [ref=e60]:
+          - generic [ref=e61]: Race
+          - generic [ref=e62]: 60 seconds · max score
+        - generic [ref=e63]:
+          - text: best
+          - generic [ref=e64]: "0"
+      - button "Daily Same puzzle for everyone today 0" [ref=e65] [cursor=pointer]:
+        - generic [ref=e66]:
+          - generic [ref=e67]: Daily
+          - generic [ref=e68]: Same puzzle for everyone
+        - generic [ref=e69]:
+          - text: today
+          - generic [ref=e70]: "0"
+    - generic [ref=e71]:
+      - button "How to play" [ref=e72] [cursor=pointer]
+      - button "Settings" [ref=e73] [cursor=pointer]
+  - generic [ref=e74]:
+    - generic [ref=e75]:
+      - generic [ref=e76]: — how to play —
+      - button "Close" [ref=e77] [cursor=pointer]:
+        - img [ref=e78]
+    - generic [ref=e80]:
+      - generic [ref=e81]:
+        - generic [ref=e82]: "01"
+        - generic [ref=e83]: Tap any empty cell to place the next tile
+      - generic [ref=e84]:
+        - generic [ref=e85]: "02"
+        - generic [ref=e86]: Two equal tiles touching merge into a bigger one — chains keep going
+      - generic [ref=e87]:
+        - generic [ref=e88]: "03"
+        - generic [ref=e89]: Game ends when the board fills with no merges left. Reach 2048!
+      - generic [ref=e90]:
+        - generic [ref=e91]: ★
+        - generic [ref=e92]: Wild tiles match any neighbor — golden, glowing
+      - generic [ref=e93]:
+        - generic [ref=e94]: ✦
+        - generic [ref=e95]: Bombs destroy all tiles in a 3×3 area when placed
+    - button "Got it" [ref=e96] [cursor=pointer]
+  - generic:
+    - generic: — round complete —
+    - generic:
+      - generic: "0"
+      - generic: best 0
+      - generic:
+        - generic:
+          - generic: Highest
+          - generic: "2"
+        - generic:
+          - generic: Moves
+          - generic: "0"
+        - generic:
+          - generic: Best chain
+          - generic: ×1
+    - generic:
+      - button "Play Again"
+      - button "Home"
+  - generic:
+    - generic:
+      - generic:
+        - generic: — settings —
+        - generic: SETTINGS
+      - button "Close":
+        - img
+    - generic:
+      - generic: Audio · Haptics
+      - generic:
+        - generic: Sound effects
+      - generic:
+        - generic: Haptics (vibration)
+      - generic:
+        - generic: Hint cells on tap
+    - generic:
+      - generic: Theme
+    - generic:
+      - generic: Stats
+    - generic:
+      - generic:
+        - text: Achievements
+        - generic: 0/12
+    - generic:
+      - button "Reset all progress"
+  - generic:
+    - generic:
+      - generic: — share daily —
+      - button "Close":
+        - img
+    - generic: DAILY
+    - generic: today
+    - generic: ...
+    - button "Copy result"
+    - button "Back"
