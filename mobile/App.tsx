@@ -35,7 +35,6 @@ import {
   newGame,
   place,
   tickRace,
-  undo as undoState,
   type GameState,
 } from './src/game';
 import {
@@ -509,16 +508,6 @@ function Root() {
     setOverlay('home');
   }
 
-  function onUndo() {
-    if (state.mode === 'race') return;
-    const undone = undoState(state);
-    if (!undone) return;
-    setState(undone);
-    setDisplayedScore(undone.score);
-    SFX.button();
-    Feel.button();
-  }
-
   function onToggleSetting(key: 'sound' | 'haptics' | 'hints') {
     if (!persistent) return;
     setPersistent({
@@ -788,24 +777,6 @@ function Root() {
 
           {/* FOOTER */}
           <View style={[styles.footer, { borderTopColor: theme.ink }]}>
-            <Pressable
-              onPress={onUndo}
-              disabled={!state.prev || state.mode === 'race'}
-              style={({ pressed }) => [
-                styles.btn,
-                {
-                  borderColor: theme.ink,
-                  opacity: !state.prev || state.mode === 'race' ? 0.3 : 1,
-                  backgroundColor: pressed ? theme.ink : 'transparent',
-                },
-              ]}
-            >
-              {({ pressed }) => (
-                <Text style={[styles.btnText, { color: pressed ? theme.bg : theme.ink }]} allowFontScaling={false}>
-                  UNDO
-                </Text>
-              )}
-            </Pressable>
             <Pressable
               onPress={goHome}
               style={({ pressed }) => [
