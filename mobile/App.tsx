@@ -624,7 +624,7 @@ function Root() {
   if (!persistent) {
     return (
       <SafeAreaView style={[styles.boot, { backgroundColor: theme.bg }]}>
-        <Text style={{ color: theme.ink, fontSize: 18, fontWeight: '700' }}>STACK / MERGE</Text>
+        <Text style={{ color: theme.ink, fontSize: 18, fontWeight: '700' }}>STACK & MERGE</Text>
       </SafeAreaView>
     );
   }
@@ -643,7 +643,7 @@ function Root() {
           <View style={[styles.header, { borderBottomColor: theme.ink }]}>
             <View style={{ flex: 1 }}>
               <Text style={[styles.brand, { color: theme.ink }]} allowFontScaling={false}>
-                STACK<Text style={{ color: theme.accent }}>/</Text>MERGE
+                STACK<Text style={{ color: theme.accent }}>&</Text>MERGE
               </Text>
               <Text style={[styles.brandSub, { color: theme.inkDim }]} allowFontScaling={false}>
                 tap · combine · grow

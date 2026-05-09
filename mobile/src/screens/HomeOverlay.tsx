@@ -34,7 +34,7 @@ export const HomeOverlay: React.FC<Props> = ({
         </Text>
         <Text style={[styles.title, { color: theme.ink }]} allowFontScaling={false}>
           STACK
-          <Text style={{ color: theme.accent }}>/</Text>
+          <Text style={{ color: theme.accent }}>&</Text>
           MERGE
         </Text>
         <Text style={[styles.tag, { color: theme.inkDim }]} allowFontScaling={false}>
