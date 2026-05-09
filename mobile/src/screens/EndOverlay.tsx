@@ -9,8 +9,11 @@ interface Props {
   state: GameState;
   bestScore: number;
   isNewBest: boolean;
+  /** Indicates a submission attempt is in flight or has settled. */
+  submitState: 'idle' | 'submitting' | 'submitted' | 'error';
   onPlayAgain: () => void;
-  onShare: () => void;
+  onSubmitLeaderboard: () => void;
+  onViewLeaderboard: () => void;
   onHome: () => void;
 }
 
@@ -19,10 +22,23 @@ export const EndOverlay: React.FC<Props> = ({
   state,
   bestScore,
   isNewBest,
+  submitState,
   onPlayAgain,
-  onShare,
+  onSubmitLeaderboard,
+  onViewLeaderboard,
   onHome,
 }) => {
+  const submitLabel =
+    submitState === 'submitting'
+      ? 'Submitting…'
+      : submitState === 'submitted'
+      ? '✓ Submitted'
+      : submitState === 'error'
+      ? 'Try again'
+      : 'Submit to Leaderboard';
+
+  const canSubmit = state.score > 0 && submitState !== 'submitting' && submitState !== 'submitted';
+
   return (
     <SafeAreaView style={[styles.host, { backgroundColor: theme.bg }]}>
       <ScrollView contentContainerStyle={styles.scroll}>
@@ -62,27 +78,44 @@ export const EndOverlay: React.FC<Props> = ({
               Play Again
             </Text>
           </Pressable>
-          {state.mode === 'daily' && (
-            <Pressable
-              onPress={onShare}
-              style={({ pressed }) => [
-                styles.btn,
-                {
-                  backgroundColor: pressed ? theme.ink : 'transparent',
-                  borderColor: theme.ink,
-                },
-              ]}
-            >
-              {({ pressed }) => (
-                <Text
-                  style={[styles.btnText, { color: pressed ? theme.bg : theme.ink }]}
-                  allowFontScaling={false}
-                >
-                  Share Result
-                </Text>
-              )}
-            </Pressable>
-          )}
+
+          <Pressable
+            onPress={canSubmit ? onSubmitLeaderboard : onViewLeaderboard}
+            disabled={submitState === 'submitting'}
+            style={({ pressed }) => [
+              styles.btn,
+              {
+                borderColor: theme.ink,
+                backgroundColor:
+                  submitState === 'submitted'
+                    ? theme.accent
+                    : pressed
+                    ? theme.ink
+                    : 'transparent',
+                opacity: submitState === 'submitting' ? 0.6 : 1,
+              },
+            ]}
+          >
+            {({ pressed }) => (
+              <Text
+                style={[
+                  styles.btnText,
+                  {
+                    color:
+                      submitState === 'submitted'
+                        ? theme.bg
+                        : pressed
+                        ? theme.bg
+                        : theme.ink,
+                  },
+                ]}
+                allowFontScaling={false}
+              >
+                {submitState === 'submitted' ? 'View Leaderboard' : submitLabel}
+              </Text>
+            )}
+          </Pressable>
+
           <Pressable
             onPress={onHome}
             style={({ pressed }) => [

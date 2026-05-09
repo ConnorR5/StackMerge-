@@ -41,7 +41,7 @@ export function isLightTile(v: TileValue): boolean {
   return v === 512 || v === 1024 || v === SPECIAL_WILD;
 }
 
-export type GameMode = 'classic' | 'zen' | 'race' | 'daily';
+export type GameMode = 'classic' | 'zen' | 'race';
 
 export const MODES: Array<{
   id: GameMode;
@@ -51,7 +51,6 @@ export const MODES: Array<{
   { id: 'classic', name: 'Classic', desc: 'Reach 2048 · special tiles' },
   { id: 'zen', name: 'Zen', desc: 'No game over · drift forever' },
   { id: 'race', name: 'Race', desc: '60 seconds · max score' },
-  { id: 'daily', name: 'Daily', desc: 'Same puzzle for everyone' },
 ];
 
 export const RACE_DURATION_SEC = 60;

@@ -1,9 +1,9 @@
 /**
  * Pure game model. No React, no platform APIs — just rules.
  *
- * The game is a 4x4 grid of power-of-two tiles. Each turn the player taps an
- * empty cell; the "next" tile lands there and merges with any equal neighbor,
- * resolving chain merges from the placed cell outward.
+ * 4x4 grid of power-of-two tiles. Each turn the player taps an empty cell;
+ * the "next" tile lands there and merges with any equal neighbor, resolving
+ * chain merges from the placed cell outward.
  */
 
 import {
@@ -29,7 +29,6 @@ export interface GameState {
   mergeCount: number;
   ended: boolean;
   timeLeft: number | null; // race only
-  /** Sequence number; only used for daily seeded RNG advancement, kept for parity. */
   tileSeq: number;
 }
 
@@ -43,48 +42,11 @@ export interface GameSnapshot {
   mergeCount: number;
 }
 
-export type Rng = () => number;
-
-/** Mulberry32 — deterministic, fast. Used for daily seeded mode. */
-export function mulberry32(seed: number): Rng {
-  let s = seed >>> 0;
-  return () => {
-    s = (s + 0x6d2b79f5) >>> 0;
-    let t = s;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-export function todayString(): string {
-  const d = new Date();
-  return (
-    d.getFullYear() +
-    '-' +
-    String(d.getMonth() + 1).padStart(2, '0') +
-    '-' +
-    String(d.getDate()).padStart(2, '0')
-  );
-}
-
-export function hashString(s: string): number {
-  let h = 0;
-  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
-  return h >>> 0;
-}
-
-function makeRng(mode: GameMode): Rng {
-  if (mode === 'daily') return mulberry32(hashString('stackmerge:' + todayString()));
-  return Math.random;
-}
-
 function emptyGrid(): Grid {
   return Array.from({ length: SIZE }, () => Array(SIZE).fill(0));
 }
 
 export function newGame(mode: GameMode): GameState {
-  const rng = makeRng(mode);
   const state: GameState = {
     mode,
     grid: emptyGrid(),
@@ -99,20 +61,12 @@ export function newGame(mode: GameMode): GameState {
     timeLeft: mode === 'race' ? RACE_DURATION_SEC : null,
     tileSeq: 0,
   };
-  state.next = rollNext(state, rng);
-  // Stash the rng on the state via closure isn't possible across reducers,
-  // so callers should re-derive it deterministically when needed. For daily,
-  // we re-derive from (today + tileSeq) so undo + replay stays consistent.
+  state.next = rollNext(state);
   return state;
 }
 
-/**
- * Pick the next tile to spawn. For random modes (classic/zen) we use Math.random;
- * for daily, we use a seeded PRNG. To stay deterministic across remounts the
- * caller should pass an rng derived from (state.mode + state.tileSeq) for daily.
- */
-export function rollNext(state: GameState, rng: Rng = Math.random): TileValue {
-  const r = rng();
+export function rollNext(state: GameState): TileValue {
+  const r = Math.random();
   const score = state.score;
   state.tileSeq += 1;
 
@@ -122,20 +76,10 @@ export function rollNext(state: GameState, rng: Rng = Math.random): TileValue {
     if (score > 600 && r >= 0.04 && r < 0.07) return SPECIAL_BOMB;
   }
 
-  const r2 = rng();
+  const r2 = Math.random();
   if (score > 200 && r2 < 0.08) return 8;
   if (r2 < 0.25) return 4;
   return 2;
-}
-
-export function getRng(state: GameState): Rng {
-  if (state.mode === 'daily') {
-    // Derive a fresh rng each call from (today, tileSeq). This makes spawns
-    // deterministic across saves/undo without storing rng state.
-    const seed = hashString('stackmerge:' + todayString() + ':' + state.tileSeq);
-    return mulberry32(seed);
-  }
-  return Math.random;
 }
 
 export function snapshot(state: GameState): GameSnapshot {
@@ -169,7 +113,6 @@ export function neighbors(r: number, c: number): Array<[number, number]> {
   return out;
 }
 
-/** Find an adjacent cell that this tile can merge with (same value, or a wild). */
 export function findMergePartner(
   grid: Grid,
   r: number,
@@ -221,9 +164,8 @@ export function smallestTilePos(
 }
 
 /* ============================================================
-   Place + resolve. Returns a sequence of "events" the UI uses
-   to drive animations + sounds + haptics. We don't mutate the
-   passed-in state — we return a new state and an event log.
+   Place + resolve. Returns a sequence of "events" the UI uses to
+   drive animations + sounds + haptics.
    ============================================================ */
 
 export type PlaceEvent =
@@ -241,13 +183,11 @@ export interface PlaceResult {
   events: PlaceEvent[];
 }
 
-/** Pure-ish: takes state, returns a new state + an ordered event log. */
 export function place(prev: GameState, r: number, c: number): PlaceResult | null {
   if (prev.ended) return null;
   if (prev.grid[r][c] !== 0) return null;
 
   const events: PlaceEvent[] = [];
-  // Deep-clone to keep purity at this layer
   const state: GameState = {
     ...prev,
     grid: prev.grid.map((row) => row.slice()),
@@ -297,7 +237,6 @@ export function place(prev: GameState, r: number, c: number): PlaceResult | null
     events.push({ type: 'wild', r, c, becomes });
   }
 
-  // Merge chain
   let totalGained = 0;
   let chainCount = 0;
 
@@ -339,9 +278,9 @@ export function place(prev: GameState, r: number, c: number): PlaceResult | null
 }
 
 function finishTurn(state: GameState, events: PlaceEvent[]): void {
-  state.next = rollNext(state, getRng(state));
+  state.next = rollNext(state);
 
-  if (state.mode === 'race') return; // race ends on timer, not fullness
+  if (state.mode === 'race') return;
 
   if (isFull(state.grid) && !hasAnyMerge(state.grid)) {
     if (state.mode === 'zen') {

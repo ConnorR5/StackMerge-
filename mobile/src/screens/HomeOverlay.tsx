@@ -4,7 +4,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { MODES, type GameMode } from '../constants';
 import type { Theme } from '../theme';
 import type { Persistent } from '../storage';
-import { todayString } from '../game';
 
 interface Props {
   theme: Theme;
@@ -12,6 +11,7 @@ interface Props {
   onPickMode: (mode: GameMode) => void;
   onOpenHowTo: () => void;
   onOpenSettings: () => void;
+  onOpenLeaderboard: () => void;
 }
 
 export const HomeOverlay: React.FC<Props> = ({
@@ -20,13 +20,10 @@ export const HomeOverlay: React.FC<Props> = ({
   onPickMode,
   onOpenHowTo,
   onOpenSettings,
+  onOpenLeaderboard,
 }) => {
   function bestFor(mode: GameMode): number {
-    if (mode === 'daily') {
-      const t = todayString();
-      return persistent.daily[t]?.score || 0;
-    }
-    return persistent.bests[mode as Exclude<GameMode, 'daily'>] || 0;
+    return persistent.bests[mode] || 0;
   }
 
   return (
@@ -86,7 +83,7 @@ export const HomeOverlay: React.FC<Props> = ({
                         ]}
                         allowFontScaling={false}
                       >
-                        {m.id === 'daily' ? 'today' : 'best'}
+                        best
                       </Text>
                       <Text
                         style={[
@@ -104,6 +101,21 @@ export const HomeOverlay: React.FC<Props> = ({
             );
           })}
         </View>
+
+        <Pressable
+          style={({ pressed }) => [
+            styles.leaderboardBtn,
+            {
+              borderColor: theme.ink,
+              backgroundColor: pressed ? theme.accent : theme.ink,
+            },
+          ]}
+          onPress={onOpenLeaderboard}
+        >
+          <Text style={[styles.leaderboardText, { color: theme.bg }]} allowFontScaling={false}>
+            ◆ LEADERBOARD
+          </Text>
+        </Pressable>
 
         <View style={styles.row}>
           <Pressable
@@ -214,6 +226,17 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     gap: 10,
+  },
+  leaderboardBtn: {
+    borderWidth: 2,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  leaderboardText: {
+    fontSize: 12,
+    letterSpacing: 2,
+    fontWeight: '700',
   },
   smallBtn: {
     flex: 1,

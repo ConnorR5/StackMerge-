@@ -35,7 +35,6 @@ import {
   newGame,
   place,
   tickRace,
-  todayString,
   undo as undoState,
   type GameState,
 } from './src/game';
@@ -48,6 +47,7 @@ import {
 import { SFX, setSoundEnabled } from './src/sfx';
 import { Feel, setHapticsEnabled } from './src/haptics';
 import { ACHIEVEMENTS } from './src/achievements';
+import { submitScore } from './src/leaderboard';
 
 import { Board } from './src/components/Board';
 import { ComboCallout } from './src/components/ComboCallout';
@@ -59,9 +59,11 @@ import { HomeOverlay } from './src/screens/HomeOverlay';
 import { HowToOverlay } from './src/screens/HowToOverlay';
 import { EndOverlay } from './src/screens/EndOverlay';
 import { SettingsOverlay } from './src/screens/SettingsOverlay';
-import { ShareOverlay } from './src/screens/ShareOverlay';
+import { LeaderboardOverlay } from './src/screens/LeaderboardOverlay';
+import { NameOverlay } from './src/screens/NameOverlay';
 
-type Overlay = 'home' | 'howto' | 'end' | 'settings' | 'share' | null;
+type Overlay = 'home' | 'howto' | 'end' | 'settings' | 'leaderboard' | 'name' | null;
+type SubmitState = 'idle' | 'submitting' | 'submitted' | 'error';
 
 const BOARD_GAP = 8;
 
@@ -255,8 +257,7 @@ function Root() {
   }
 
   function bestForMode(p: Persistent, mode: GameMode): number {
-    if (mode === 'daily') return p.daily[todayString()]?.score || 0;
-    return p.bests[mode as Exclude<GameMode, 'daily'>] || 0;
+    return p.bests[mode] || 0;
   }
 
   /* ============================================================
@@ -401,27 +402,9 @@ function Root() {
       nextP = checkThemeUnlocks(nextP);
 
       // Update best score (per mode)
-      if (result.state.mode === 'daily') {
-        const today = todayString();
-        const prev = nextP.daily[today]?.score || 0;
-        if (result.state.score > prev) {
-          nextP = {
-            ...nextP,
-            daily: {
-              ...nextP.daily,
-              [today]: {
-                score: result.state.score,
-                highest: result.state.highestTile,
-                moves: result.state.moves,
-              },
-            },
-          };
-        }
-      } else {
-        const m = result.state.mode as Exclude<GameMode, 'daily'>;
-        if (result.state.score > (nextP.bests[m] || 0)) {
-          nextP = { ...nextP, bests: { ...nextP.bests, [m]: result.state.score } };
-        }
+      const m = result.state.mode;
+      if (result.state.score > (nextP.bests[m] || 0)) {
+        nextP = { ...nextP, bests: { ...nextP.bests, [m]: result.state.score } };
       }
 
       // Game over: bump games + total score, mode-specific achievements
@@ -436,7 +419,6 @@ function Root() {
           },
         };
         if (nextP.stats.gamesPlayed >= 10) nextP = unlockAchievement(nextP, 'veteran');
-        if (result.state.mode === 'daily') nextP = unlockAchievement(nextP, 'daily');
         if (result.state.mode === 'zen' && result.state.score >= 5000) nextP = unlockAchievement(nextP, 'zen');
         if (result.state.mode === 'race' && result.state.score >= 1500) nextP = unlockAchievement(nextP, 'race');
       }
@@ -562,42 +544,63 @@ function Root() {
     setOverlay('home');
   }
 
-  function buildShareText(): string {
-    if (!persistent) return '';
-    const today = todayString();
-    const d = persistent.daily[today];
-    if (!d) return 'STACK/MERGE Daily ' + today + '\nNo result yet';
-    let viz = '';
-    if (state.mode === 'daily') {
-      viz = '\n' + state.grid
-        .map((row) =>
-          row
-            .map((v) => {
-              if (v === 0) return '⬜';
-              if (v === SPECIAL_WILD) return '⭐';
-              if (v === SPECIAL_BOMB) return '⬛';
-              if (v >= 1024) return '🟥';
-              if (v >= 256) return '🟧';
-              if (v >= 32) return '🟨';
-              return '🟫';
-            })
-            .join('')
-        )
-        .join('\n') + '\n';
+  /* ============================================================
+     LEADERBOARD
+     ============================================================ */
+  const [submitState, setSubmitState] = useState<SubmitState>('idle');
+  const [leaderboardMode, setLeaderboardMode] = useState<GameMode>('classic');
+
+  function openLeaderboard(initial: GameMode = 'classic') {
+    setLeaderboardMode(initial);
+    setOverlay('leaderboard');
+    SFX.button();
+    Feel.button();
+  }
+
+  async function doSubmitScore(name: string) {
+    const p = persistentRef.current;
+    if (!p || !p.deviceId) return;
+    if (state.score <= 0) return;
+    setSubmitState('submitting');
+    try {
+      await submitScore({
+        name,
+        score: state.score,
+        mode: state.mode,
+        highestTile: state.highestTile,
+        moves: state.moves,
+        longestChain: state.longestChain,
+        deviceId: p.deviceId,
+      });
+      setSubmitState('submitted');
+      SFX.unlock();
+      Feel.unlock();
+      // Unlock the leaderboard achievement
+      const next = unlockAchievement(p, 'leaderboard');
+      if (next !== p) setPersistent(next);
+    } catch (e) {
+      setSubmitState('error');
+      showToast('⚠', 'Submit failed', 'check connection');
     }
-    return (
-      'STACK/MERGE Daily ' +
-      today +
-      '\n' +
-      'Score ' +
-      d.score +
-      ' · highest ' +
-      d.highest +
-      ' · ' +
-      d.moves +
-      ' moves' +
-      viz
-    );
+  }
+
+  function onTrySubmit() {
+    if (!persistent) return;
+    if (state.score <= 0) return;
+    if (!persistent.playerName) {
+      // First time — capture name then submit
+      setOverlay('name');
+      return;
+    }
+    doSubmitScore(persistent.playerName);
+  }
+
+  function onNameSubmitted(name: string) {
+    if (!persistent) return;
+    setPersistent({ ...persistent, playerName: name });
+    setOverlay('end');
+    // Submit immediately with the new name
+    doSubmitScore(name);
   }
 
   const colorScheme = useColorScheme();
@@ -802,6 +805,7 @@ function Root() {
           onPickMode={startMode}
           onOpenHowTo={() => setOverlay('howto')}
           onOpenSettings={() => setOverlay('settings')}
+          onOpenLeaderboard={() => openLeaderboard('classic')}
         />
       )}
       {overlay === 'howto' && (
@@ -819,9 +823,17 @@ function Root() {
           state={state}
           bestScore={bestForCurrent}
           isNewBest={isNewBest}
-          onPlayAgain={() => startMode(state.mode)}
-          onShare={() => setOverlay('share')}
-          onHome={goHome}
+          submitState={submitState}
+          onPlayAgain={() => {
+            setSubmitState('idle');
+            startMode(state.mode);
+          }}
+          onSubmitLeaderboard={onTrySubmit}
+          onViewLeaderboard={() => openLeaderboard(state.mode)}
+          onHome={() => {
+            setSubmitState('idle');
+            goHome();
+          }}
         />
       )}
       {overlay === 'settings' && (
@@ -834,12 +846,20 @@ function Root() {
           onReset={onResetProgress}
         />
       )}
-      {overlay === 'share' && (
-        <ShareOverlay
+      {overlay === 'leaderboard' && (
+        <LeaderboardOverlay
           theme={theme}
-          date={todayString()}
-          shareText={buildShareText()}
-          onClose={() => setOverlay('end')}
+          initialMode={leaderboardMode}
+          myDeviceId={persistent.deviceId}
+          onClose={() => setOverlay(state.ended ? 'end' : 'home')}
+        />
+      )}
+      {overlay === 'name' && (
+        <NameOverlay
+          theme={theme}
+          initial={persistent.playerName}
+          onSubmit={onNameSubmitted}
+          onCancel={() => setOverlay('end')}
         />
       )}
 

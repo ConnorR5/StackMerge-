@@ -15,7 +15,7 @@ export const ACHIEVEMENTS: Achievement[] = [
   { id: 'reach1024',mark: '◓', name: 'Quad K',       desc: 'Build a 1024 tile' },
   { id: 'reach2048',mark: '★', name: 'Stack master', desc: 'Build a 2048 tile' },
   { id: 'veteran',  mark: '●', name: 'Veteran',      desc: 'Play 10 games' },
-  { id: 'daily',    mark: '☼', name: 'Daily player', desc: 'Complete a daily run' },
+  { id: 'leaderboard', mark: '☼', name: 'On the board', desc: 'Submit a score to the leaderboard' },
   { id: 'zen',      mark: '∞', name: 'Zen master',   desc: 'Score 5000 in Zen' },
   { id: 'race',     mark: '⚡', name: 'Speed demon',  desc: 'Score 1500 in Race' },
 ];
