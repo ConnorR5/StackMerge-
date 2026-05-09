@@ -1,0 +1,19 @@
+# Editor / tool state
+.claude/
+.playwright-mcp/
+.DS_Store
+
+# Playwright artifacts
+mobile-game.png
+home.png
+*.log
+
+# Node
+node_modules/
+
+# Expo
+mobile/.expo/
+mobile/dist/
+mobile/web-build/
+mobile/ios/
+mobile/android/

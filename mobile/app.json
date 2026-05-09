@@ -1,0 +1,37 @@
+{
+  "expo": {
+    "name": "Stack Merge",
+    "slug": "stack-merge",
+    "scheme": "stackmerge",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#f4f1ea"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.connor.stackmerge"
+    },
+    "android": {
+      "package": "com.connor.stackmerge",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#f4f1ea"
+      },
+      "edgeToEdgeEnabled": true,
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-font"
+    ]
+  }
+}
