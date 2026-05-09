@@ -32,6 +32,8 @@ export const LeaderboardOverlay: React.FC<Props> = ({
   const [rows, setRows] = useState<ScoreRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  /** Row whose player_number reveal is currently shown (hover on web, tap on mobile). */
+  const [revealedId, setRevealedId] = useState<string | null>(null);
 
   async function load(m: GameMode) {
     setLoading(true);
@@ -180,7 +182,14 @@ export const LeaderboardOverlay: React.FC<Props> = ({
                 >
                   {String(rank).padStart(2, '0')}
                 </Text>
-                <View style={{ flex: 1 }}>
+                <Pressable
+                  style={{ flex: 1 }}
+                  onHoverIn={() => setRevealedId(row.id)}
+                  onHoverOut={() => setRevealedId((id) => (id === row.id ? null : id))}
+                  onPress={() =>
+                    setRevealedId((id) => (id === row.id ? null : row.id))
+                  }
+                >
                   <Text
                     style={[
                       styles.name,
@@ -190,12 +199,17 @@ export const LeaderboardOverlay: React.FC<Props> = ({
                     allowFontScaling={false}
                   >
                     {displayLabel(row.player)}
+                    {revealedId === row.id && row.player?.name && (
+                      <Text style={[styles.numberBadge, { color: theme.inkDim }]} allowFontScaling={false}>
+                        {'  #' + row.player.player_number}
+                      </Text>
+                    )}
                     {isMe ? '  ← you' : ''}
                   </Text>
                   <Text style={[styles.meta, { color: theme.inkDim }]} numberOfLines={1} allowFontScaling={false}>
                     highest {row.highest_tile} · {row.moves} moves · ×{row.longest_chain}
                   </Text>
-                </View>
+                </Pressable>
                 <Text style={[styles.score, { color: theme.ink }]} allowFontScaling={false}>
                   {row.score}
                 </Text>
@@ -285,6 +299,12 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     letterSpacing: -0.3,
+  },
+  numberBadge: {
+    fontFamily: 'monospace',
+    fontSize: 12,
+    fontWeight: '600',
+    letterSpacing: 0.5,
   },
   meta: {
     fontSize: 9,
