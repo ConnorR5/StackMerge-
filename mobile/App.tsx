@@ -63,7 +63,7 @@ import { LeaderboardOverlay } from './src/screens/LeaderboardOverlay';
 import { NameOverlay } from './src/screens/NameOverlay';
 
 type Overlay = 'home' | 'howto' | 'end' | 'settings' | 'leaderboard' | 'name' | null;
-type SubmitState = 'idle' | 'submitting' | 'submitted' | 'error';
+import type { EndSubmitState } from './src/screens/EndOverlay';
 
 const BOARD_GAP = 8;
 
@@ -545,10 +545,16 @@ function Root() {
   }
 
   /* ============================================================
-     LEADERBOARD
+     LEADERBOARD — auto-submit every completed game
      ============================================================ */
-  const [submitState, setSubmitState] = useState<SubmitState>('idle');
+  const [submitState, setSubmitState] = useState<EndSubmitState>('idle');
   const [leaderboardMode, setLeaderboardMode] = useState<GameMode>('classic');
+  /** Identifies the current ended-game so we don't double-submit. */
+  const submittedKeyRef = useRef<string | null>(null);
+
+  function gameKey(s: GameState): string {
+    return s.mode + ':' + s.moves + ':' + s.score + ':' + s.highestTile;
+  }
 
   function openLeaderboard(initial: GameMode = 'classic') {
     setLeaderboardMode(initial);
@@ -557,50 +563,71 @@ function Root() {
     Feel.button();
   }
 
-  async function doSubmitScore(name: string) {
+  async function doSubmitScore(name: string, snapshot: GameState) {
     const p = persistentRef.current;
     if (!p || !p.deviceId) return;
-    if (state.score <= 0) return;
+    if (snapshot.score <= 0) {
+      setSubmitState('skipped');
+      return;
+    }
     setSubmitState('submitting');
     try {
       await submitScore({
         name,
-        score: state.score,
-        mode: state.mode,
-        highestTile: state.highestTile,
-        moves: state.moves,
-        longestChain: state.longestChain,
+        score: snapshot.score,
+        mode: snapshot.mode,
+        highestTile: snapshot.highestTile,
+        moves: snapshot.moves,
+        longestChain: snapshot.longestChain,
         deviceId: p.deviceId,
       });
       setSubmitState('submitted');
-      SFX.unlock();
-      Feel.unlock();
-      // Unlock the leaderboard achievement
+      submittedKeyRef.current = gameKey(snapshot);
       const next = unlockAchievement(p, 'leaderboard');
       if (next !== p) setPersistent(next);
     } catch (e) {
       setSubmitState('error');
-      showToast('⚠', 'Submit failed', 'check connection');
     }
   }
 
-  function onTrySubmit() {
-    if (!persistent) return;
-    if (state.score <= 0) return;
-    if (!persistent.playerName) {
-      // First time — capture name then submit
-      setOverlay('name');
+  // Auto-submit whenever the end overlay opens for a fresh ended game.
+  useEffect(() => {
+    if (overlay !== 'end' || !state.ended || !persistent) return;
+    const key = gameKey(state);
+    if (submittedKeyRef.current === key) return;
+    if (state.score <= 0) {
+      setSubmitState('skipped');
+      submittedKeyRef.current = key;
       return;
     }
-    doSubmitScore(persistent.playerName);
+    if (!persistent.playerName) {
+      setSubmitState('needs-name');
+      return;
+    }
+    submittedKeyRef.current = key;
+    doSubmitScore(persistent.playerName, state);
+  }, [overlay, state.ended, state.score, state.mode, state.moves, state.highestTile, persistent?.playerName, persistent?.deviceId]);
+
+  /** Called when the user taps the status line — either to fix needs-name or retry. */
+  function onSubmitAction() {
+    if (submitState === 'needs-name') {
+      setOverlay('name');
+    } else if (submitState === 'error') {
+      const p = persistentRef.current;
+      if (p?.playerName) {
+        // Retry with the same snapshot
+        submittedKeyRef.current = null;
+        doSubmitScore(p.playerName, state);
+      }
+    }
   }
 
   function onNameSubmitted(name: string) {
     if (!persistent) return;
     setPersistent({ ...persistent, playerName: name });
     setOverlay('end');
-    // Submit immediately with the new name
-    doSubmitScore(name);
+    submittedKeyRef.current = null; // allow re-submit with new name
+    doSubmitScore(name, state);
   }
 
   const colorScheme = useColorScheme();
@@ -826,12 +853,14 @@ function Root() {
           submitState={submitState}
           onPlayAgain={() => {
             setSubmitState('idle');
+            submittedKeyRef.current = null;
             startMode(state.mode);
           }}
-          onSubmitLeaderboard={onTrySubmit}
+          onSubmitAction={onSubmitAction}
           onViewLeaderboard={() => openLeaderboard(state.mode)}
           onHome={() => {
             setSubmitState('idle');
+            submittedKeyRef.current = null;
             goHome();
           }}
         />

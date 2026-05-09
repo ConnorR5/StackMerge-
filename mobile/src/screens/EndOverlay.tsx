@@ -4,15 +4,23 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import type { GameState } from '../game';
 import type { Theme } from '../theme';
 
+export type EndSubmitState =
+  | 'idle'
+  | 'needs-name'
+  | 'submitting'
+  | 'submitted'
+  | 'error'
+  | 'skipped'; // score was 0 — nothing to submit
+
 interface Props {
   theme: Theme;
   state: GameState;
   bestScore: number;
   isNewBest: boolean;
-  /** Indicates a submission attempt is in flight or has settled. */
-  submitState: 'idle' | 'submitting' | 'submitted' | 'error';
+  submitState: EndSubmitState;
   onPlayAgain: () => void;
-  onSubmitLeaderboard: () => void;
+  /** Tapped when state is 'needs-name' or 'error' to retry. */
+  onSubmitAction: () => void;
   onViewLeaderboard: () => void;
   onHome: () => void;
 }
@@ -24,20 +32,11 @@ export const EndOverlay: React.FC<Props> = ({
   isNewBest,
   submitState,
   onPlayAgain,
-  onSubmitLeaderboard,
+  onSubmitAction,
   onViewLeaderboard,
   onHome,
 }) => {
-  const submitLabel =
-    submitState === 'submitting'
-      ? 'Submitting…'
-      : submitState === 'submitted'
-      ? '✓ Submitted'
-      : submitState === 'error'
-      ? 'Try again'
-      : 'Submit to Leaderboard';
-
-  const canSubmit = state.score > 0 && submitState !== 'submitting' && submitState !== 'submitted';
+  const status = renderStatus(theme, submitState, onSubmitAction);
 
   return (
     <SafeAreaView style={[styles.host, { backgroundColor: theme.bg }]}>
@@ -66,6 +65,8 @@ export const EndOverlay: React.FC<Props> = ({
           </View>
         </View>
 
+        {status}
+
         <View style={styles.btns}>
           <Pressable
             onPress={onPlayAgain}
@@ -78,44 +79,25 @@ export const EndOverlay: React.FC<Props> = ({
               Play Again
             </Text>
           </Pressable>
-
           <Pressable
-            onPress={canSubmit ? onSubmitLeaderboard : onViewLeaderboard}
-            disabled={submitState === 'submitting'}
+            onPress={onViewLeaderboard}
             style={({ pressed }) => [
               styles.btn,
               {
                 borderColor: theme.ink,
-                backgroundColor:
-                  submitState === 'submitted'
-                    ? theme.accent
-                    : pressed
-                    ? theme.ink
-                    : 'transparent',
-                opacity: submitState === 'submitting' ? 0.6 : 1,
+                backgroundColor: pressed ? theme.ink : 'transparent',
               },
             ]}
           >
             {({ pressed }) => (
               <Text
-                style={[
-                  styles.btnText,
-                  {
-                    color:
-                      submitState === 'submitted'
-                        ? theme.bg
-                        : pressed
-                        ? theme.bg
-                        : theme.ink,
-                  },
-                ]}
+                style={[styles.btnText, { color: pressed ? theme.bg : theme.ink }]}
                 allowFontScaling={false}
               >
-                {submitState === 'submitted' ? 'View Leaderboard' : submitLabel}
+                View Leaderboard
               </Text>
             )}
           </Pressable>
-
           <Pressable
             onPress={onHome}
             style={({ pressed }) => [
@@ -141,6 +123,52 @@ export const EndOverlay: React.FC<Props> = ({
   );
 };
 
+function renderStatus(
+  theme: Theme,
+  s: EndSubmitState,
+  onAction: () => void
+): React.ReactNode {
+  if (s === 'skipped' || s === 'idle') return null;
+
+  if (s === 'submitting') {
+    return (
+      <View style={styles.statusLine}>
+        <Text style={[styles.statusText, { color: theme.inkDim }]} allowFontScaling={false}>
+          → posting your score…
+        </Text>
+      </View>
+    );
+  }
+  if (s === 'submitted') {
+    return (
+      <View style={styles.statusLine}>
+        <Text style={[styles.statusText, { color: theme.accent }]} allowFontScaling={false}>
+          ✓ posted to the board
+        </Text>
+      </View>
+    );
+  }
+  if (s === 'error') {
+    return (
+      <Pressable style={styles.statusLine} onPress={onAction}>
+        <Text style={[styles.statusText, { color: theme.accent, textDecorationLine: 'underline' }]} allowFontScaling={false}>
+          ⚠ couldn't post — tap to retry
+        </Text>
+      </Pressable>
+    );
+  }
+  if (s === 'needs-name') {
+    return (
+      <Pressable style={styles.statusLine} onPress={onAction}>
+        <Text style={[styles.statusText, { color: theme.accent, textDecorationLine: 'underline' }]} allowFontScaling={false}>
+          + set a display name to post your score
+        </Text>
+      </Pressable>
+    );
+  }
+  return null;
+}
+
 const Stat: React.FC<{ theme: Theme; label: string; value: string }> = ({ theme, label, value }) => (
   <View style={styles.stat}>
     <Text style={[styles.statLabel, { color: theme.inkDim }]} allowFontScaling={false}>
@@ -156,7 +184,7 @@ const styles = StyleSheet.create({
   host: { ...StyleSheet.absoluteFillObject, zIndex: 110 },
   scroll: { padding: 24, flexGrow: 1 },
   mark: { fontSize: 10, letterSpacing: 3, fontWeight: '700' },
-  center: { alignItems: 'center', marginTop: 20, marginBottom: 32 },
+  center: { alignItems: 'center', marginTop: 20, marginBottom: 24 },
   score: {
     fontSize: 80,
     fontWeight: '800',
@@ -193,6 +221,17 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: -0.5,
     marginTop: 4,
+  },
+  statusLine: {
+    alignItems: 'center',
+    paddingVertical: 12,
+    marginBottom: 8,
+  },
+  statusText: {
+    fontFamily: 'monospace',
+    fontSize: 11,
+    letterSpacing: 1,
+    fontWeight: '600',
   },
   btns: { gap: 10, marginTop: 'auto' },
   btn: {
