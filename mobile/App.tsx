@@ -39,7 +39,6 @@ import {
 } from './src/game';
 import {
   loadPersistent,
-  resetPersistent,
   savePersistent,
   type Persistent,
 } from './src/storage';
@@ -620,13 +619,6 @@ function Root() {
     }
   }
 
-  async function onResetProgress() {
-    Analytics.resetProgress();
-    await resetPersistent();
-    const p = await loadPersistent();
-    setPersistent(p);
-    setOverlay('home');
-  }
 
   /* ============================================================
      LEADERBOARD — auto-submit every completed game
@@ -1027,7 +1019,6 @@ function Root() {
           onClose={() => setOverlay(state.ended || state.moves === 0 ? 'home' : null)}
           onToggle={onToggleSetting}
           onPickTheme={onPickTheme}
-          onReset={onResetProgress}
         />
       )}
       {overlay === 'leaderboard' && (

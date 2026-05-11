@@ -1,10 +1,14 @@
 import React from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Theme, ThemeId } from '../theme';
 import { THEMES, THEME_UNLOCK } from '../theme';
 import type { Persistent } from '../storage';
 import { ACHIEVEMENTS } from '../achievements';
+
+const SUPPORT_EMAIL = 'connorrydel@coastn.co';
+const SUPPORT_MAILTO =
+  `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent('Stack & Merge support')}`;
 
 interface Props {
   theme: Theme;
@@ -12,7 +16,6 @@ interface Props {
   onClose: () => void;
   onToggle: (key: 'sound' | 'haptics' | 'hints') => void;
   onPickTheme: (id: ThemeId) => void;
-  onReset: () => void;
 }
 
 export const SettingsOverlay: React.FC<Props> = ({
@@ -21,7 +24,6 @@ export const SettingsOverlay: React.FC<Props> = ({
   onClose,
   onToggle,
   onPickTheme,
-  onReset,
 }) => {
   const stats = persistent.stats;
   const unlockedThemes = persistent.unlockedThemes;
@@ -199,22 +201,39 @@ export const SettingsOverlay: React.FC<Props> = ({
           </View>
         </View>
 
-        <Pressable
-          onPress={onReset}
-          style={({ pressed }) => [
-            styles.dangerBtn,
-            {
-              borderColor: pressed ? '#d94f3a' : theme.inkSoft,
-              backgroundColor: pressed ? '#d94f3a' : 'transparent',
-            },
-          ]}
-        >
-          {({ pressed }) => (
-            <Text style={[styles.dangerText, { color: pressed ? '#fff' : theme.inkDim }]} allowFontScaling={false}>
-              RESET ALL PROGRESS
-            </Text>
-          )}
-        </Pressable>
+        {/* Support */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: theme.inkDim, borderBottomColor: theme.inkSoft }]} allowFontScaling={false}>
+            SUPPORT
+          </Text>
+          <Pressable
+            onPress={() => Linking.openURL(SUPPORT_MAILTO)}
+            style={({ pressed }) => [
+              styles.supportBtn,
+              { borderColor: theme.ink, backgroundColor: pressed ? theme.ink : 'transparent' },
+            ]}
+          >
+            {({ pressed }) => (
+              <View style={{ alignItems: 'center' }}>
+                <Text
+                  style={[styles.supportLabel, { color: pressed ? theme.bg : theme.ink }]}
+                  allowFontScaling={false}
+                >
+                  CONTACT THE DEV
+                </Text>
+                <Text
+                  style={[styles.supportEmail, { color: pressed ? theme.bg : theme.inkDim }]}
+                  allowFontScaling={false}
+                >
+                  {SUPPORT_EMAIL}
+                </Text>
+              </View>
+            )}
+          </Pressable>
+          <Text style={[styles.supportHint, { color: theme.inkDim }]} allowFontScaling={false}>
+            Bugs, ideas, hellos — all welcome. I read every email.
+          </Text>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -368,14 +387,28 @@ const styles = StyleSheet.create({
   achMark: { fontSize: 22, lineHeight: 22 },
   achName: { fontWeight: '700', fontSize: 13, letterSpacing: -0.3, lineHeight: 16 },
   achDesc: { fontSize: 9, letterSpacing: 1, marginTop: 4, lineHeight: 13 },
-  dangerBtn: {
-    borderWidth: 1.5,
-    paddingVertical: 12,
+  supportBtn: {
+    borderWidth: 2,
+    paddingVertical: 14,
     alignItems: 'center',
   },
-  dangerText: {
-    fontSize: 10,
-    letterSpacing: 1.5,
+  supportLabel: {
+    fontSize: 11,
+    letterSpacing: 1.8,
     fontWeight: '700',
+  },
+  supportEmail: {
+    fontSize: 12,
+    fontWeight: '600',
+    letterSpacing: 0.2,
+    marginTop: 4,
+  },
+  supportHint: {
+    fontSize: 10,
+    letterSpacing: 0.8,
+    fontWeight: '500',
+    marginTop: 10,
+    textAlign: 'center',
+    lineHeight: 14,
   },
 });

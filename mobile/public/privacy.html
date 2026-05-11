@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="index,follow">
+<title>Privacy Policy — Stack &amp; Merge</title>
+<style>
+  :root {
+    --bg: #f4f1ea;
+    --ink: #1a1612;
+    --ink-dim: rgba(26, 22, 18, 0.6);
+    --accent: #d94f3a;
+    --rule: rgba(26, 22, 18, 0.12);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1a1a22;
+      --ink: #e8e6df;
+      --ink-dim: rgba(232, 230, 223, 0.6);
+      --accent: #ff7a5a;
+      --rule: rgba(232, 230, 223, 0.14);
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", Helvetica, Arial, sans-serif;
+    line-height: 1.55;
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 640px; margin: 0 auto; padding: 56px 24px 80px; }
+  .brand {
+    font-size: 11px;
+    letter-spacing: 3px;
+    color: var(--ink-dim);
+    font-weight: 700;
+    text-transform: uppercase;
+    margin-bottom: 14px;
+  }
+  .brand .amp { color: var(--accent); }
+  h1 {
+    font-size: 38px;
+    letter-spacing: -1.2px;
+    font-weight: 800;
+    margin: 0 0 8px;
+    line-height: 1.05;
+  }
+  .updated {
+    font-size: 12px;
+    letter-spacing: 1px;
+    color: var(--ink-dim);
+    font-weight: 600;
+    text-transform: uppercase;
+    margin-bottom: 36px;
+  }
+  h2 {
+    font-size: 13px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    font-weight: 700;
+    color: var(--ink-dim);
+    margin: 36px 0 14px;
+    padding-bottom: 8px;
+    border-bottom: 1px dashed var(--rule);
+  }
+  p { margin: 0 0 14px; }
+  ul { margin: 0 0 16px; padding-left: 22px; }
+  li { margin-bottom: 6px; }
+  a { color: var(--accent); text-decoration: underline; }
+  .pill {
+    display: inline-block;
+    border: 1px solid var(--rule);
+    padding: 2px 8px;
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--ink-dim);
+  }
+  footer {
+    margin-top: 56px;
+    padding-top: 20px;
+    border-top: 1px dashed var(--rule);
+    font-size: 12px;
+    color: var(--ink-dim);
+  }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <div class="brand">STACK<span class="amp">&amp;</span>MERGE</div>
+  <h1>Privacy Policy</h1>
+  <div class="updated">Last updated · May 10, 2026</div>
+
+  <p>Stack &amp; Merge is built by a solo developer (Connor Rydel). This policy is short on purpose, because the app collects almost nothing.</p>
+
+  <h2>What we collect</h2>
+  <ul>
+    <li><strong>A random device identifier</strong> — generated on first launch and stored only on your device. It is used to keep your scores yours and to highlight your row on the leaderboard. It is not your Apple ID, not your IDFA, not your phone number.</li>
+    <li><strong>Anonymous gameplay events</strong> — what mode you played, your score, biggest tile, moves, longest chain, and whether your submission to the leaderboard succeeded. These help me find bugs and tune difficulty.</li>
+    <li><strong>An optional display name</strong> — only if you choose one in the Name screen. Until then you appear as <span class="pill">#42</span> (a sequential number).</li>
+  </ul>
+
+  <h2>What we do NOT collect</h2>
+  <ul>
+    <li>No real names, emails, phone numbers, addresses, or accounts.</li>
+    <li>No location data.</li>
+    <li>No contacts, photos, microphone, camera, or health data.</li>
+    <li>No advertising identifiers (IDFA / GAID) — we do not show ads.</li>
+    <li>No tracking across other apps or websites.</li>
+  </ul>
+
+  <h2>Where data lives</h2>
+  <p>Anonymous gameplay events flow to <strong>PostHog</strong>, a product-analytics service. Leaderboard scores and your optional display name flow to <strong>Supabase</strong>, which hosts the database. Neither service receives anything identifying you personally.</p>
+
+  <h2>Your choices</h2>
+  <ul>
+    <li>You can play without ever setting a display name — your number identity works the same.</li>
+    <li>To remove your data, email <a href="mailto:connorrydel@coastn.co">connorrydel@coastn.co</a> from any address and tell me your player number or display name. I'll delete your rows.</li>
+    <li>Uninstalling the app deletes the local device identifier; future installs generate a new one.</li>
+  </ul>
+
+  <h2>Children</h2>
+  <p>Stack &amp; Merge is age-rated 4+ and contains no objectionable content. We do not knowingly collect data from anyone under 13.</p>
+
+  <h2>Changes</h2>
+  <p>If this policy ever changes I'll update this page and bump the date above. Material changes will also be flagged in the app's release notes.</p>
+
+  <h2>Contact</h2>
+  <p>Questions or removal requests: <a href="mailto:connorrydel@coastn.co">connorrydel@coastn.co</a></p>
+
+  <footer>
+    Stack &amp; Merge · Built by Connor Rydel · Coast'n Tech
+  </footer>
+</main>
+</body>
+</html>
