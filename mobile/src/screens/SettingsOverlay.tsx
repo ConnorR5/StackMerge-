@@ -27,6 +27,12 @@ export const SettingsOverlay: React.FC<Props> = ({
   const unlockedThemes = persistent.unlockedThemes;
   const settings = persistent.settings;
   const unlockedCount = persistent.achievements.unlocked.length;
+  // Best score across all modes — what theme unlocks are now gated on.
+  const bestScore = Math.max(
+    persistent.bests.classic,
+    persistent.bests.zen,
+    persistent.bests.race
+  );
 
   return (
     <SafeAreaView style={[styles.host, { backgroundColor: theme.bg }]}>
@@ -113,7 +119,7 @@ export const SettingsOverlay: React.FC<Props> = ({
                       style={[styles.themeLock, { color: isActive ? theme.bg : theme.inkDim }]}
                       allowFontScaling={false}
                     >
-                      unlock at {lockHint}
+                      reach {lockHint} pts · best {bestScore}
                     </Text>
                   )}
                 </Pressable>

@@ -152,7 +152,7 @@ export const Analytics = {
   themeChanged(props: { from: ThemeId; to: ThemeId }) {
     track('theme_changed', props);
   },
-  themeUnlocked(props: { theme: ThemeId; biggestTile: number }) {
+  themeUnlocked(props: { theme: ThemeId; score: number }) {
     track('theme_unlocked', props);
   },
   achievementUnlocked(props: { id: string }) {

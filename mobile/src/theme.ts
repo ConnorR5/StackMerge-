@@ -69,8 +69,14 @@ export const THEMES: Record<ThemeId, Theme> = {
   },
 };
 
+/**
+ * Score thresholds (not tile values) — players reach these by playing well,
+ * not by building specific tiles. Steps are 4× to make each unlock feel earned:
+ * Forest is the first real grind (~10× the median run), Ocean is "no one has
+ * done this yet" territory, Midnight effectively requires a 2048 tile.
+ */
 export const THEME_UNLOCK: Record<Exclude<ThemeId, 'dawn'>, number> = {
-  forest: 256,
-  ocean: 512,
-  midnight: 1024,
+  forest: 1024,
+  ocean: 4096,
+  midnight: 16384,
 };

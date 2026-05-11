@@ -254,21 +254,20 @@ function Root() {
     return next;
   }
 
-  function checkThemeUnlocks(p: Persistent): Persistent {
-    const big = p.stats.biggestTile;
+  function checkThemeUnlocks(p: Persistent, currentScore: number): Persistent {
     let next = p;
     const unlocks: Array<{ id: ThemeId; need: number }> = [
-      { id: 'forest', need: 256 },
-      { id: 'ocean', need: 512 },
-      { id: 'midnight', need: 1024 },
+      { id: 'forest', need: 1024 },
+      { id: 'ocean', need: 4096 },
+      { id: 'midnight', need: 16384 },
     ];
     for (const u of unlocks) {
-      if (big >= u.need && !next.unlockedThemes.includes(u.id)) {
+      if (currentScore >= u.need && !next.unlockedThemes.includes(u.id)) {
         next = { ...next, unlockedThemes: [...next.unlockedThemes, u.id] };
         showToast('◆', 'Theme unlocked', u.id.toUpperCase());
         SFX.unlock();
         Feel.unlock();
-        Analytics.themeUnlocked({ theme: u.id, biggestTile: big });
+        Analytics.themeUnlocked({ theme: u.id, score: currentScore });
       }
     }
     return next;
@@ -417,7 +416,7 @@ function Root() {
         longestChain: Math.max(nextP.stats.longestChain, result.state.longestChain),
       };
       nextP = { ...nextP, stats: newStats };
-      nextP = checkThemeUnlocks(nextP);
+      nextP = checkThemeUnlocks(nextP, result.state.score);
 
       // Update best score (per mode)
       const m = result.state.mode;
