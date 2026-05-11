@@ -6,9 +6,6 @@ import Animated, {
   useAnimatedStyle,
   withTiming,
   withSequence,
-  withSpring,
-  withRepeat,
-  withDelay,
   Easing,
 } from 'react-native-reanimated';
 import {
@@ -70,72 +67,64 @@ function MergeLoop({ theme }: { theme: Theme }) {
       leftScale.value = 1;
 
       while (alive) {
-        // brief idle — let the eye settle on the two equal tiles
-        await sleep(650);
+        // longer idle — the demo is ambient, not the focus
+        await sleep(1400);
         if (!alive) return;
 
-        // slide right tile into left
+        // slide right tile into left, gentler
         rightTx.value = withTiming(-(DEMO_TILE + DEMO_GAP), {
-          duration: 320,
-          easing: Easing.in(Easing.cubic),
+          duration: 520,
+          easing: Easing.inOut(Easing.cubic),
         });
-        await sleep(320);
+        await sleep(520);
         if (!alive) return;
 
-        // merge moment: hide right, double left, pop + ring burst
+        // merge moment: hide right, double left, soft pop + faint ring
         const newVal = v * 2;
         setRightValue(null);
         setLeftValue(newVal);
         rightTx.value = 0;
         rightScale.value = 0;
         leftScale.value = withSequence(
-          withTiming(1.22, { duration: 90, easing: Easing.out(Easing.quad) }),
-          withSpring(1, { damping: 12, stiffness: 260 })
+          withTiming(1.06, { duration: 140, easing: Easing.out(Easing.quad) }),
+          withTiming(1, { duration: 220, easing: Easing.inOut(Easing.quad) })
         );
         ringColor.value = colorFor(newVal);
-        ringScale.value = 0.55;
-        ringOpacity.value = 0.85;
-        ringScale.value = withTiming(2.4, {
-          duration: 480,
+        ringScale.value = 0.7;
+        ringOpacity.value = 0.22;
+        ringScale.value = withTiming(1.55, {
+          duration: 620,
           easing: Easing.out(Easing.cubic),
         });
         ringOpacity.value = withTiming(0, {
-          duration: 480,
+          duration: 620,
           easing: Easing.in(Easing.quad),
         });
 
-        await sleep(540);
+        await sleep(720);
         if (!alive) return;
 
         if (newVal >= 2048) {
-          // 2048 reached — bigger pop, longer dwell, then reset
-          leftScale.value = withSequence(
-            withTiming(1.38, {
-              duration: 240,
-              easing: Easing.out(Easing.cubic),
-            }),
-            withSpring(1, { damping: 10, stiffness: 200 })
-          );
-          await sleep(1100);
+          // 2048 — still subtle, just a touch more dwell time
+          await sleep(1300);
           if (!alive) return;
-          // fade the strip, swap values, fade back
-          trackOpacity.value = withTiming(0, { duration: 220 });
-          await sleep(240);
+          trackOpacity.value = withTiming(0, { duration: 280 });
+          await sleep(300);
           if (!alive) return;
           v = 2;
           setLeftValue(2);
           setRightValue(2);
           rightScale.value = 1;
           leftScale.value = 1;
-          trackOpacity.value = withTiming(1, { duration: 260 });
+          trackOpacity.value = withTiming(1, { duration: 320 });
         } else {
-          // refill right slot with matching value so we can merge again
+          // refill right slot with matching value, fade in instead of pop
           v = newVal;
           setRightValue(newVal);
-          rightScale.value = withSequence(
-            withTiming(0, { duration: 1 }),
-            withSpring(1, { damping: 11, stiffness: 240 })
-          );
+          rightScale.value = withTiming(1, {
+            duration: 320,
+            easing: Easing.out(Easing.cubic),
+          });
         }
       }
     }
@@ -276,35 +265,6 @@ export const HomeOverlay: React.FC<Props> = ({
   const hasStats = persistent.stats.gamesPlayed > 0;
   const achUnlocked = persistent.achievements.unlocked.length;
 
-  // Slow pulse on the title accent character
-  const ampScale = useSharedValue(1);
-  useEffect(() => {
-    ampScale.value = withRepeat(
-      withSequence(
-        withTiming(1.14, { duration: 1300, easing: Easing.inOut(Easing.quad) }),
-        withTiming(1, { duration: 1300, easing: Easing.inOut(Easing.quad) })
-      ),
-      -1,
-      false
-    );
-  }, [ampScale]);
-  const ampStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: ampScale.value }],
-  }));
-
-  // Subtle pulsing dot beside the eyebrow
-  const dot = useSharedValue(0.4);
-  useEffect(() => {
-    dot.value = withRepeat(
-      withSequence(
-        withTiming(1, { duration: 900, easing: Easing.inOut(Easing.quad) }),
-        withTiming(0.3, { duration: 900, easing: Easing.inOut(Easing.quad) })
-      ),
-      -1,
-      false
-    );
-  }, [dot]);
-  const dotStyle = useAnimatedStyle(() => ({ opacity: dot.value }));
 
   return (
     <SafeAreaView
@@ -316,12 +276,8 @@ export const HomeOverlay: React.FC<Props> = ({
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.eyebrowRow}>
-          <Animated.View
-            style={[
-              styles.eyebrowDot,
-              { backgroundColor: theme.accent },
-              dotStyle,
-            ]}
+          <View
+            style={[styles.eyebrowDot, { backgroundColor: theme.accent }]}
           />
           <Text
             style={[styles.mark, { color: theme.inkDim }]}
@@ -336,9 +292,7 @@ export const HomeOverlay: React.FC<Props> = ({
           allowFontScaling={false}
         >
           STACK
-          <Animated.Text style={[{ color: theme.accent }, ampStyle]}>
-            &
-          </Animated.Text>
+          <Text style={{ color: theme.accent }}>&</Text>
           MERGE
         </Text>
         <Text
