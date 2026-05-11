@@ -7,7 +7,7 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View, useColorScheme } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View, useColorScheme } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, {
@@ -47,6 +47,7 @@ import { SFX, setSoundEnabled } from './src/sfx';
 import { Feel, setHapticsEnabled } from './src/haptics';
 import { ACHIEVEMENTS } from './src/achievements';
 import { ensurePlayer, setPlayerName, submitScore } from './src/leaderboard';
+import { Analytics, identify, setPlayerProps } from './src/analytics';
 
 import { Board } from './src/components/Board';
 import { ComboCallout } from './src/components/ComboCallout';
@@ -129,6 +130,8 @@ function Root() {
   const placingRef = useRef(false);
   const stateRef = useRef(state);
   const persistentRef = useRef(persistent);
+  /** Wall-clock start of the current run, for analytics duration. */
+  const runStartedAtRef = useRef<number>(Date.now());
   useEffect(() => {
     stateRef.current = state;
   }, [state]);
@@ -143,8 +146,22 @@ function Root() {
       setPersistent(p);
       setSoundEnabled(p.settings.sound);
       setHapticsEnabled(p.settings.haptics);
+      if (p.deviceId) {
+        identify(p.deviceId, {
+          theme: p.settings.theme,
+          biggest_tile: p.stats.biggestTile,
+          games_played: p.stats.gamesPlayed,
+          has_name: !!p.playerName,
+        });
+      }
+      Analytics.appOpen({
+        platform: Platform.OS,
+        deviceId: p.deviceId ?? 'unknown',
+        playerName: p.playerName,
+      });
       if (!p.seenHowTo) {
         setOverlay('howto');
+        Analytics.howtoOpened({ first_run: true });
       } else {
         setOverlay('home');
       }
@@ -232,6 +249,7 @@ function Root() {
       showToast(ach.mark, 'Achievement unlocked', ach.name);
       SFX.unlock();
       Feel.unlock();
+      Analytics.achievementUnlocked({ id });
     }
     return next;
   }
@@ -250,6 +268,7 @@ function Root() {
         showToast('◆', 'Theme unlocked', u.id.toUpperCase());
         SFX.unlock();
         Feel.unlock();
+        Analytics.themeUnlocked({ theme: u.id, biggestTile: big });
       }
     }
     return next;
@@ -427,6 +446,17 @@ function Root() {
       if (ended) {
         SFX.gameOver();
         Feel.gameOver();
+        Analytics.gameEnd({
+          mode: result.state.mode,
+          score: result.state.score,
+          moves: result.state.moves,
+          highestTile: result.state.highestTile,
+          longestChain: result.state.longestChain,
+          mergeCount: result.state.mergeCount,
+          durationMs: Date.now() - runStartedAtRef.current,
+          ended_reason: 'natural',
+          isNewBest: result.state.score > (livePersistent.bests[result.state.mode] || 0),
+        });
         setTimeout(() => setOverlay('end'), 350);
       }
 
@@ -472,6 +502,17 @@ function Root() {
               }
               if (next.score >= 1500) pp = unlockAchievement(pp, 'race');
               if (pp.stats.gamesPlayed >= 10) pp = unlockAchievement(pp, 'veteran');
+              Analytics.gameEnd({
+                mode: 'race',
+                score: next.score,
+                moves: next.moves,
+                highestTile: next.highestTile,
+                longestChain: next.longestChain,
+                mergeCount: next.mergeCount,
+                durationMs: Date.now() - runStartedAtRef.current,
+                ended_reason: 'race_timeout',
+                isNewBest: next.score > (persistentRef.current.bests.race || 0),
+              });
               setPersistent(pp);
             }
             setOverlay('end');
@@ -498,14 +539,63 @@ function Root() {
     setFloats([]);
     setCombo(null);
     setOverlay(null);
+    runStartedAtRef.current = Date.now();
     SFX.button();
     Feel.button();
+    Analytics.gameStart({
+      mode,
+      theme: persistentRef.current?.settings.theme ?? 'dawn',
+    });
   }
 
   function goHome() {
     SFX.button();
     Feel.button();
     setOverlay('home');
+  }
+
+  /**
+   * Zen never ends naturally — this is the only path that finalizes a Zen run
+   * so the score lands on the leaderboard. Mirrors the natural-game-over path.
+   */
+  function endZenRun() {
+    const cur = stateRef.current;
+    const p = persistentRef.current;
+    if (!p || cur.mode !== 'zen' || cur.ended) return;
+    SFX.button();
+    Feel.button();
+    const finalized: GameState = { ...cur, ended: true };
+    setState(finalized);
+
+    let nextP = p;
+    const isBest = finalized.score > (nextP.bests.zen || 0);
+    nextP = {
+      ...nextP,
+      bests: { ...nextP.bests, zen: Math.max(nextP.bests.zen || 0, finalized.score) },
+      stats: {
+        ...nextP.stats,
+        gamesPlayed: nextP.stats.gamesPlayed + 1,
+        totalScore: nextP.stats.totalScore + finalized.score,
+      },
+    };
+    if (finalized.score >= 5000) nextP = unlockAchievement(nextP, 'zen');
+    if (nextP.stats.gamesPlayed >= 10) nextP = unlockAchievement(nextP, 'veteran');
+    setPersistent(nextP);
+
+    Analytics.gameEnd({
+      mode: 'zen',
+      score: finalized.score,
+      moves: finalized.moves,
+      highestTile: finalized.highestTile,
+      longestChain: finalized.longestChain,
+      mergeCount: finalized.mergeCount,
+      durationMs: Date.now() - runStartedAtRef.current,
+      ended_reason: 'zen_end',
+      isNewBest: isBest,
+    });
+    SFX.gameOver();
+    Feel.gameOver();
+    setTimeout(() => setOverlay('end'), 250);
   }
 
   function onToggleSetting(key: 'sound' | 'haptics' | 'hints') {
@@ -521,12 +611,18 @@ function Root() {
   function onPickTheme(id: ThemeId) {
     if (!persistent) return;
     if (!persistent.unlockedThemes.includes(id)) return;
+    const from = persistent.settings.theme;
     setPersistent({ ...persistent, settings: { ...persistent.settings, theme: id } });
     SFX.button();
     Feel.button();
+    if (from !== id) {
+      Analytics.themeChanged({ from, to: id });
+      setPlayerProps({ theme: id });
+    }
   }
 
   async function onResetProgress() {
+    Analytics.resetProgress();
     await resetPersistent();
     const p = await loadPersistent();
     setPersistent(p);
@@ -557,6 +653,16 @@ function Root() {
         const player = await ensurePlayer(persistent.deviceId!);
         if (cancelled) return;
         setMyPlayerNumber(player.player_number);
+        Analytics.playerIdentified({
+          deviceId: persistent.deviceId!,
+          playerNumber: player.player_number,
+          playerName: player.name,
+        });
+        setPlayerProps({
+          player_number: player.player_number,
+          has_name: !!player.name,
+          name: player.name,
+        });
         // Sync persisted name with whatever the server has for this device
         if (player.name && player.name !== persistent.playerName) {
           setPersistent({ ...persistent, playerName: player.name });
@@ -570,11 +676,12 @@ function Root() {
     };
   }, [persistent?.deviceId]);
 
-  function openLeaderboard(initial: GameMode = 'classic') {
+  function openLeaderboard(initial: GameMode = 'classic', source: 'home' | 'end' = 'home') {
     setLeaderboardMode(initial);
     setOverlay('leaderboard');
     SFX.button();
     Feel.button();
+    Analytics.leaderboardOpened({ initial_mode: initial, source });
   }
 
   async function doSubmitScore(snapshot: GameState) {
@@ -582,9 +689,15 @@ function Root() {
     if (!p || !p.deviceId) return;
     if (snapshot.score <= 0) {
       setSubmitState('skipped');
+      Analytics.scoreSubmitResult({
+        mode: snapshot.mode,
+        score: snapshot.score,
+        result: 'skipped',
+      });
       return;
     }
     setSubmitState('submitting');
+    Analytics.scoreSubmit({ mode: snapshot.mode, score: snapshot.score });
     try {
       await submitScore({
         score: snapshot.score,
@@ -596,10 +709,21 @@ function Root() {
       });
       setSubmitState('submitted');
       submittedKeyRef.current = gameKey(snapshot);
+      Analytics.scoreSubmitResult({
+        mode: snapshot.mode,
+        score: snapshot.score,
+        result: 'success',
+      });
       const next = unlockAchievement(p, 'leaderboard');
       if (next !== p) setPersistent(next);
-    } catch (e) {
+    } catch (e: any) {
       setSubmitState('error');
+      Analytics.scoreSubmitResult({
+        mode: snapshot.mode,
+        score: snapshot.score,
+        result: 'error',
+        error: e?.message ?? 'unknown',
+      });
     }
   }
 
@@ -639,8 +763,11 @@ function Root() {
         return { ok: false as const, reason: r.error.reason };
       return { ok: false as const, reason: 'connection failed — try again' };
     }
+    const wasFirstTime = !p.playerName;
     setPersistent({ ...p, playerName: name });
     setMyPlayerNumber(r.player.player_number);
+    Analytics.nameSet({ length: name.length, was_first_time: wasFirstTime });
+    setPlayerProps({ name, has_name: true });
     // Close name overlay → return to whatever screen we came from
     setOverlay(state.ended ? 'end' : 'home');
     return { ok: true as const };
@@ -697,6 +824,7 @@ function Root() {
                 onPress={() => {
                   SFX.button();
                   Feel.button();
+                  Analytics.settingsOpened();
                   setOverlay('settings');
                 }}
                 style={({ pressed }) => [
@@ -804,6 +932,27 @@ function Root() {
 
           {/* FOOTER */}
           <View style={[styles.footer, { borderTopColor: theme.ink }]}>
+            {state.mode === 'zen' && !state.ended && state.score > 0 && (
+              <Pressable
+                onPress={endZenRun}
+                style={({ pressed }) => [
+                  styles.btn,
+                  {
+                    borderColor: theme.ink,
+                    backgroundColor: pressed ? theme.ink : 'transparent',
+                  },
+                ]}
+              >
+                {({ pressed }) => (
+                  <Text
+                    style={[styles.btnText, { color: pressed ? theme.bg : theme.ink }]}
+                    allowFontScaling={false}
+                  >
+                    END RUN
+                  </Text>
+                )}
+              </Pressable>
+            )}
             <Pressable
               onPress={goHome}
               style={({ pressed }) => [
@@ -829,9 +978,15 @@ function Root() {
           persistent={persistent}
           myPlayerNumber={myPlayerNumber}
           onPickMode={startMode}
-          onOpenHowTo={() => setOverlay('howto')}
-          onOpenSettings={() => setOverlay('settings')}
-          onOpenLeaderboard={() => openLeaderboard('classic')}
+          onOpenHowTo={() => {
+            Analytics.howtoOpened({ first_run: false });
+            setOverlay('howto');
+          }}
+          onOpenSettings={() => {
+            Analytics.settingsOpened();
+            setOverlay('settings');
+          }}
+          onOpenLeaderboard={() => openLeaderboard('classic', 'home')}
           onOpenName={() => setOverlay('name')}
         />
       )}
@@ -840,6 +995,7 @@ function Root() {
           theme={theme}
           onClose={() => {
             setPersistent({ ...persistent, seenHowTo: true });
+            Analytics.howtoDismissed();
             setOverlay(persistent.seenHowTo ? null : 'home');
           }}
         />
@@ -857,7 +1013,7 @@ function Root() {
             startMode(state.mode);
           }}
           onSubmitAction={onSubmitAction}
-          onViewLeaderboard={() => openLeaderboard(state.mode)}
+          onViewLeaderboard={() => openLeaderboard(state.mode, 'end')}
           onHome={() => {
             setSubmitState('idle');
             submittedKeyRef.current = null;

@@ -280,10 +280,11 @@ export function place(prev: GameState, r: number, c: number): PlaceResult | null
 function finishTurn(state: GameState, events: PlaceEvent[]): void {
   state.next = rollNext(state);
 
-  if (state.mode === 'race') return;
-
   if (isFull(state.grid) && !hasAnyMerge(state.grid)) {
-    if (state.mode === 'zen') {
+    if (state.mode === 'zen' || state.mode === 'race') {
+      // Race can deadlock if the board fills with no possible merges
+      // before the timer hits 0. Use the same overflow valve as zen so
+      // the player can keep racing instead of waiting it out.
       const small = smallestTilePos(state.grid);
       if (small) {
         state.grid[small.r][small.c] = 0;

@@ -31,7 +31,8 @@
       "bundler": "metro"
     },
     "plugins": [
-      "expo-font"
+      "expo-font",
+      "expo-localization"
     ]
   }
 }

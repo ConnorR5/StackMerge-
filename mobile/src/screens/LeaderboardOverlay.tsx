@@ -11,6 +11,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { MODES, type GameMode } from '../constants';
 import type { Theme } from '../theme';
 import { displayLabel, fetchTopScores, type ScoreRow } from '../leaderboard';
+import { Analytics } from '../analytics';
 
 interface Props {
   theme: Theme;
@@ -85,7 +86,12 @@ export const LeaderboardOverlay: React.FC<Props> = ({
           return (
             <Pressable
               key={m.id}
-              onPress={() => setMode(m.id)}
+              onPress={() => {
+                if (m.id !== mode) {
+                  Analytics.leaderboardModeChanged({ from: mode, to: m.id });
+                  setMode(m.id);
+                }
+              }}
               style={({ pressed }) => [
                 styles.tab,
                 {

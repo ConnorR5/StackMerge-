@@ -4,6 +4,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { MODES, type GameMode } from '../constants';
 import type { Theme } from '../theme';
 import type { Persistent } from '../storage';
+import { ACHIEVEMENTS } from '../achievements';
+
+const VERSION = '0.1.0';
 
 interface Props {
   theme: Theme;
@@ -31,6 +34,10 @@ export const HomeOverlay: React.FC<Props> = ({
     return persistent.bests[mode] || 0;
   }
 
+  const hasName = !!persistent.playerName;
+  const hasStats = persistent.stats.gamesPlayed > 0;
+  const achUnlocked = persistent.achievements.unlocked.length;
+
   return (
     <SafeAreaView style={[styles.host, { backgroundColor: theme.bg }]} edges={['top', 'bottom']}>
       <ScrollView contentContainerStyle={styles.scroll}>
@@ -45,6 +52,19 @@ export const HomeOverlay: React.FC<Props> = ({
         <Text style={[styles.tag, { color: theme.inkDim }]} allowFontScaling={false}>
           tap · combine · grow
         </Text>
+
+        {hasStats && (
+          <View style={[styles.statsStrip, { borderColor: theme.inkSoft }]}>
+            <Text style={[styles.statsText, { color: theme.inkDim }]} allowFontScaling={false}>
+              <Text style={{ color: theme.ink, fontWeight: '700' }}>{persistent.stats.gamesPlayed}</Text>
+              {' games · biggest '}
+              <Text style={{ color: theme.ink, fontWeight: '700' }}>{persistent.stats.biggestTile}</Text>
+              {' · '}
+              <Text style={{ color: theme.ink, fontWeight: '700' }}>{achUnlocked}/{ACHIEVEMENTS.length}</Text>
+              {' ★'}
+            </Text>
+          </View>
+        )}
 
         <View style={styles.modes}>
           {MODES.map((m) => {
@@ -125,19 +145,32 @@ export const HomeOverlay: React.FC<Props> = ({
         <Pressable
           style={({ pressed }) => [
             styles.identityRow,
-            { borderColor: theme.inkSoft, opacity: pressed ? 0.6 : 1 },
+            {
+              borderColor: hasName ? theme.inkSoft : theme.accent,
+              opacity: pressed ? 0.6 : 1,
+            },
           ]}
           onPress={onOpenName}
         >
           <Text style={[styles.identityLabel, { color: theme.inkDim }]} allowFontScaling={false}>
             you
           </Text>
-          <Text style={[styles.identityName, { color: theme.ink }]} allowFontScaling={false}>
-            {persistent.playerName ||
-              (myPlayerNumber != null ? '#' + myPlayerNumber : 'connecting…')}
-          </Text>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.identityName, { color: theme.ink }]} allowFontScaling={false}>
+              {persistent.playerName ||
+                (myPlayerNumber != null ? '#' + myPlayerNumber : 'connecting…')}
+            </Text>
+            {!hasName && myPlayerNumber != null && (
+              <Text
+                style={[styles.identitySubtitle, { color: theme.inkDim }]}
+                allowFontScaling={false}
+              >
+                claim a handle to show on the board
+              </Text>
+            )}
+          </View>
           <Text style={[styles.identityHint, { color: theme.accent }]} allowFontScaling={false}>
-            {persistent.playerName ? 'change' : 'set name'}
+            {hasName ? 'change' : 'set name →'}
           </Text>
         </Pressable>
 
@@ -181,6 +214,10 @@ export const HomeOverlay: React.FC<Props> = ({
             )}
           </Pressable>
         </View>
+
+        <Text style={[styles.versionMark, { color: theme.inkDim }]} allowFontScaling={false}>
+          v{VERSION} · STACK&MERGE
+        </Text>
       </ScrollView>
     </SafeAreaView>
   );
@@ -211,7 +248,19 @@ const styles = StyleSheet.create({
     fontSize: 11,
     letterSpacing: 1.5,
     marginTop: 6,
-    marginBottom: 32,
+    marginBottom: 20,
+    fontWeight: '600',
+  },
+  statsStrip: {
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    marginBottom: 20,
+  },
+  statsText: {
+    fontSize: 11,
+    letterSpacing: 0.8,
     fontWeight: '600',
   },
   modes: {
@@ -278,10 +327,15 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   identityName: {
-    flex: 1,
     fontSize: 16,
     fontWeight: '700',
     letterSpacing: -0.3,
+  },
+  identitySubtitle: {
+    fontSize: 9,
+    letterSpacing: 1,
+    fontWeight: '600',
+    marginTop: 3,
   },
   identityHint: {
     fontSize: 9,
@@ -299,5 +353,12 @@ const styles = StyleSheet.create({
     fontSize: 10,
     letterSpacing: 1.5,
     fontWeight: '700',
+  },
+  versionMark: {
+    marginTop: 28,
+    fontSize: 9,
+    letterSpacing: 2,
+    fontWeight: '600',
+    textAlign: 'center',
   },
 });

@@ -16,8 +16,17 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { GameMode } from './constants';
 
-const SUPABASE_URL = 'https://vigbcnztxhgwduxexkwb.supabase.co';
-const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_Xi5dxHbQleYkxwGUOBfaEg_ZqJy0VPg';
+// Config via EXPO_PUBLIC_* env vars (baked at build time), with safe fallbacks
+// to the live SideProjects publishable values so the app keeps working when
+// the .env file isn't set (e.g. fresh checkouts, preview deploys).
+// IMPORTANT: these are PUBLISHABLE keys — they're meant to live in the client
+// bundle. Security comes from RLS on the database, not from hiding the key.
+const SUPABASE_URL =
+  (typeof process !== 'undefined' && process.env?.EXPO_PUBLIC_SUPABASE_URL) ||
+  'https://vigbcnztxhgwduxexkwb.supabase.co';
+const SUPABASE_PUBLISHABLE_KEY =
+  (typeof process !== 'undefined' && process.env?.EXPO_PUBLIC_SUPABASE_KEY) ||
+  'sb_publishable_Xi5dxHbQleYkxwGUOBfaEg_ZqJy0VPg';
 
 let client: SupabaseClient | null = null;
 
@@ -74,21 +83,29 @@ export function displayLabel(p: { name: string | null; player_number: number } |
 
 export async function submitScore(input: SubmitInput): Promise<void> {
   const sb = ensure();
-  // The DB trigger auto-creates a player row for new device_ids; we never
-  // submit a name with the score (the player table owns that).
-  const { error } = await sb.from('stack_merge_scores').insert({
-    score: Math.max(0, Math.floor(input.score)),
-    mode: input.mode,
-    highest_tile: Math.max(2, Math.floor(input.highestTile)),
-    moves: Math.max(0, Math.floor(input.moves)),
-    longest_chain: Math.max(1, Math.floor(input.longestChain)),
-    device_id: input.deviceId,
-    // The legacy `name` column on scores is required (NOT NULL); we still
-    // populate it with a placeholder so old clients work, but reads use
-    // the joined player.name instead.
-    name: '_',
+  // All inserts go through the submit-score Edge Function — anon-key clients
+  // cannot insert into stack_merge_scores directly (RLS denies it). The
+  // function validates ranges, plausibility (score/move + score/tile ratios),
+  // and rate-limits per device before using service_role to write the row.
+  const { data, error } = await sb.functions.invoke('submit-score', {
+    body: {
+      score: Math.max(0, Math.floor(input.score)),
+      mode: input.mode,
+      highest_tile: Math.max(2, Math.floor(input.highestTile)),
+      moves: Math.max(1, Math.floor(input.moves)),
+      longest_chain: Math.max(1, Math.floor(input.longestChain)),
+      device_id: input.deviceId,
+    },
   });
-  if (error) throw error;
+  if (error) {
+    // supabase-js wraps non-2xx responses in FunctionsHttpError; surface the
+    // body so the caller can show a useful message ("rate limit exceeded", etc).
+    const msg =
+      (data as { error?: string } | null)?.error ??
+      (error as Error & { context?: { error?: string } }).context?.error ??
+      error.message;
+    throw new Error(msg);
+  }
 }
 
 export async function fetchTopScores(mode: GameMode, limit = 50): Promise<ScoreRow[]> {

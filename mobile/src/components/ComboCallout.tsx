@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { StyleSheet, Text } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -23,6 +23,12 @@ export const ComboCallout: React.FC<Props> = ({ big, small, color, onDone }) => 
   const rotate = useSharedValue(-4);
   const translateY = useSharedValue(0);
 
+  // Keep latest onDone in a ref so the animation effect can stay mount-only.
+  // Otherwise frequent parent re-renders restart the sequence and the
+  // overlay never finishes hiding itself.
+  const onDoneRef = useRef(onDone);
+  onDoneRef.current = onDone;
+
   useEffect(() => {
     scale.value = withSequence(
       withTiming(1.15, { duration: 180, easing: Easing.out(Easing.back(1.6)) }),
@@ -40,10 +46,14 @@ export const ComboCallout: React.FC<Props> = ({ big, small, color, onDone }) => 
     translateY.value = withDelay(
       600,
       withTiming(-30, { duration: 220 }, (done) => {
-        if (done && onDone) runOnJS(onDone)();
+        if (done) {
+          const cb = onDoneRef.current;
+          if (cb) runOnJS(cb)();
+        }
       })
     );
-  }, [scale, opacity, rotate, translateY, onDone]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const animStyle = useAnimatedStyle(() => ({
     transform: [
