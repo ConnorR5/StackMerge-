@@ -1,5 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  Image,
+  Linking,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, {
   useSharedValue,
@@ -20,6 +29,62 @@ import type { Persistent } from '../storage';
 import { ACHIEVEMENTS } from '../achievements';
 
 const VERSION = '0.1.0';
+
+const COASTN_URL = 'https://coastn.co';
+const COASTN_LOGO = require('../../assets/coastn-logo.png');
+const COASTN_LOGO_WHITE = require('../../assets/coastn-logo-white.png');
+
+// On web, react-native-web renders a View with href as a real <a>; native
+// opens the browser through Linking instead.
+const creditLinkProps =
+  Platform.OS === 'web'
+    ? ({
+        href: COASTN_URL,
+        hrefAttrs: { target: '_blank', rel: 'noopener noreferrer' },
+      } as object)
+    : {};
+
+/* "Built by Coast'n" credit — the colored wordmark on the light themes, the
+   white one on midnight. */
+function BuiltBy({ theme }: { theme: Theme }) {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <Pressable
+      {...creditLinkProps}
+      onPress={
+        Platform.OS === 'web' ? undefined : () => Linking.openURL(COASTN_URL)
+      }
+      onHoverIn={() => setHovered(true)}
+      onHoverOut={() => setHovered(false)}
+      accessibilityRole="link"
+      accessibilityLabel="Built by Coast'n"
+      style={styles.builtBy}
+    >
+      {({ pressed }) => {
+        const lit = hovered || pressed;
+        return (
+          <>
+            <Text
+              style={[
+                styles.builtByLabel,
+                { color: lit ? theme.ink : theme.inkDim },
+              ]}
+              allowFontScaling={false}
+            >
+              BUILT BY
+            </Text>
+            <Image
+              source={theme.id === 'midnight' ? COASTN_LOGO_WHITE : COASTN_LOGO}
+              style={[styles.builtByLogo, { opacity: lit ? 1 : 0.6 }]}
+              resizeMode="contain"
+              accessibilityIgnoresInvertColors
+            />
+          </>
+        );
+      }}
+    </Pressable>
+  );
+}
 
 const DEMO_TILE = 60;
 const DEMO_GAP = 10;
@@ -541,6 +606,8 @@ export const HomeOverlay: React.FC<Props> = ({
         >
           v{VERSION} · STACK&MERGE
         </Text>
+
+        <BuiltBy theme={theme} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -804,5 +871,22 @@ const styles = StyleSheet.create({
     letterSpacing: 2,
     fontWeight: '600',
     textAlign: 'center',
+  },
+  builtBy: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'center',
+    gap: 8,
+    marginTop: 14,
+    paddingVertical: 4,
+  },
+  builtByLabel: {
+    fontSize: 9,
+    letterSpacing: 2,
+    fontWeight: '700',
+  },
+  builtByLogo: {
+    width: 70,
+    height: 29,
   },
 });

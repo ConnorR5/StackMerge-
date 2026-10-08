@@ -87,7 +87,35 @@
     border-top: 1px dashed var(--rule);
     font-size: 12px;
     color: var(--ink-dim);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
   }
+  .builtby {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--ink-dim);
+    text-decoration: none;
+    transition: color 0.2s ease;
+  }
+  .builtby span {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+  .builtby img {
+    display: block;
+    height: 29px;
+    width: auto;
+    opacity: 0.6;
+    transition: opacity 0.2s ease;
+  }
+  .builtby:hover { color: var(--ink); }
+  .builtby:hover img { opacity: 1; }
 </style>
 </head>
 <body>
@@ -134,7 +162,14 @@
   <p>Questions or removal requests: <a href="mailto:connorrydel@coastn.co">connorrydel@coastn.co</a></p>
 
   <footer>
-    Stack &amp; Merge · Built by Connor Rydel · Coast'n Tech
+    <span>Stack &amp; Merge · Connor Rydel</span>
+    <a class="builtby" href="https://coastn.co" target="_blank" rel="noopener noreferrer" aria-label="Built by Coast'n">
+      <span>Built by</span>
+      <picture>
+        <source srcset="/coastn-logo-white.png" media="(prefers-color-scheme: dark)">
+        <img src="/coastn-logo.png" alt="" width="70" height="29">
+      </picture>
+    </a>
   </footer>
 </main>
 </body>
