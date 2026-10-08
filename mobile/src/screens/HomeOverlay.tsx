@@ -40,7 +40,7 @@ const creditLinkProps =
   Platform.OS === 'web'
     ? ({
         href: COASTN_URL,
-        hrefAttrs: { target: '_blank', rel: 'noopener noreferrer' },
+        hrefAttrs: { target: '_blank', rel: 'noopener' },
       } as object)
     : {};
 
@@ -77,6 +77,7 @@ function BuiltBy({ theme }: { theme: Theme }) {
               source={theme.id === 'midnight' ? COASTN_LOGO_WHITE : COASTN_LOGO}
               style={[styles.builtByLogo, { opacity: lit ? 1 : 0.6 }]}
               resizeMode="contain"
+              accessibilityLabel="Coast'n"
               accessibilityIgnoresInvertColors
             />
           </>
